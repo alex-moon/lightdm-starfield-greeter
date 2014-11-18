@@ -1,6 +1,14 @@
 *.sublime-project
 *.sublime-workspace
 
+po
+Makefile
+config.*
+libtool
+src/.deps/
+src/lightdm-gtk-greeter
+stamp-h1
+
 # Object files
 *.o
 *.ko
