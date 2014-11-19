@@ -251,57 +251,13 @@
                     <property name="height">3</property>
                   </packing>
                 </child>
-                <!--child>
-                  <object class="GtkComboBox" id="user_combobox">
-                    <property name="name">user_combobox</property>
-                    <property name="width_request">200</property>
-                    <property name="can_focus">False</property>
-                    <property name="valign">center</property>
-                    <property name="margin_top">0</property>
-                    <property name="hexpand">True</property>
-                    <property name="model">user_liststore</property>
-                    <signal name="changed" handler="user_combobox_active_changed_cb" swapped="no"/>
-                    <signal name="key-press-event" handler="user_combo_key_press_cb" swapped="no"/>
-                    <child>
-                      <object class="GtkCellRendererText" id="cellrenderertext1"/>
-                      <attributes>
-                        <attribute name="text">1</attribute>
-                        <attribute name="weight">2</attribute>
-                      </attributes>
-                    </child>
-                  </object>
-                  <packing>
-                    <property name="left_attach">0</property>
-                    <property name="top_attach">0</property>
-                    <property name="width">1</property>
-                    <property name="height">0</property>
-                  </packing>
-                </child>
-                <child>
-                  <object class="GtkEntry" id="username_entry">
-                    <property name="name">prompt_entry</property>
-                    <property name="can_focus">True</property>
-                    <property name="no_show_all">True</property>
-                    <property name="hexpand">True</property>
-                    <property name="invisible_char">•</property>
-                    <property name="placeholder_text" translatable="yes">Enter your username</property>
-                    <signal name="focus-out-event" handler="username_focus_out_cb" swapped="no"/>
-                    <signal name="key-press-event" handler="username_key_press_cb" swapped="no"/>
-                  </object>
-                  <packing>
-                    <property name="left_attach">0</property>
-                    <property name="top_attach">0</property>
-                    <property name="width">1</property>
-                    <property name="height">0</property>
-                  </packing>
-                </child-->
                 <child>
                   <object class="GtkEntry" id="password_entry">
                     <property name="name">prompt_entry</property>
                     <property name="width_request">200</property>
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
-                    <property name="margin_bottom">0</property>
+                    <property name="margin_bottom">12</property>
                     <property name="hexpand">True</property>
                     <property name="visibility">False</property>
                     <property name="invisible_char">•</property>
@@ -393,21 +349,6 @@
                 <property name="margin_right">24</property>
                 <property name="margin_bottom">24</property>
                 <child>
-                  <object class="GtkButton" id="cancel_button">
-                    <property name="label" translatable="yes">Cancel</property>
-                    <property name="name">cancel_button</property>
-                    <property name="visible">True</property>
-                    <property name="can_focus">True</property>
-                    <property name="receives_default">True</property>
-                    <signal name="clicked" handler="cancel_cb" swapped="no"/>
-                  </object>
-                  <packing>
-                    <property name="expand">False</property>
-                    <property name="fill">True</property>
-                    <property name="position">0</property>
-                  </packing>
-                </child>
-                <child>
                   <object class="GtkButton" id="login_button">
                     <property name="label" translatable="yes">Log In</property>
                     <property name="name">login_button</property>
@@ -420,7 +361,7 @@
                     <property name="expand">False</property>
                     <property name="fill">True</property>
                     <property name="pack_type">end</property>
-                    <property name="position">1</property>
+                    <property name="position">0</property>
                   </packing>
                 </child>
               </object>

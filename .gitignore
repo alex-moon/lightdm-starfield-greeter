@@ -1,6 +1,9 @@
 *.sublime-project
 *.sublime-workspace
 
+*.bak
+*~
+
 po
 Makefile
 config.*

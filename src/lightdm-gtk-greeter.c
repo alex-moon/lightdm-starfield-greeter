@@ -63,11 +63,10 @@ static void save_state_file (void);
 /* Login Window Widgets */
 static GtkWindow *login_window;
 static GtkImage *user_image;
-static GtkComboBox *user_combo;
-static GtkEntry *username_entry, *password_entry;
+static GtkEntry *password_entry;
 static GtkLabel *message_label;
 static GtkInfoBar *info_bar;
-static GtkButton *cancel_button, *login_button;
+static GtkButton *login_button;
 
 /* Panel Widgets */
 static GtkWindow *panel_window;
@@ -998,79 +997,6 @@ set_message_label (LightDMMessageType type, const gchar *text)
     gtk_widget_set_visible (GTK_WIDGET (info_bar), text && text[0]);
 }
 
-static void
-set_login_button_label (LightDMGreeter *greeter, const gchar *username)
-{
-    LightDMUser *user;
-    gboolean logged_in = FALSE;
-
-    user = lightdm_user_list_get_user_by_name (lightdm_user_list_get_instance (), username);
-    if (user)
-        logged_in = lightdm_user_get_logged_in (user);
-    if (logged_in)
-        gtk_button_set_label (login_button, _("Unlock"));
-    else
-        gtk_button_set_label (login_button, _("Log In"));
-    gtk_widget_set_can_default (GTK_WIDGET (login_button), TRUE);
-    gtk_widget_grab_default (GTK_WIDGET (login_button));
-    /* and disable the session and language widgets */
-    gtk_widget_set_sensitive (GTK_WIDGET (session_menuitem), !logged_in);
-    gtk_widget_set_sensitive (GTK_WIDGET (language_menuitem), !logged_in);
-}
-
-static void
-set_user_background (const gchar *username)
-{
-    const gchar *path = NULL;
-    if (username)
-    {
-        LightDMUser *user = lightdm_user_list_get_user_by_name (lightdm_user_list_get_instance (), username);
-        if (user)
-            path = lightdm_user_get_background (user);
-    }
-    greeter_background_set_custom_background (greeter_background, path);
-}
-
-static void
-set_user_image (const gchar *username)
-{
-    const gchar *path;
-    LightDMUser *user = NULL;
-    GdkPixbuf *image = NULL;
-    GError *error = NULL;
-
-    if(!gtk_widget_get_visible (GTK_WIDGET (user_image)))
-        return;
-
-    if (username)
-        user = lightdm_user_list_get_user_by_name (lightdm_user_list_get_instance (), username);
-
-    if (user)
-    {
-        path = lightdm_user_get_image (user);
-        if (path)
-        {
-            image = gdk_pixbuf_new_from_file_at_scale (path, 80, 80, FALSE, &error);
-            if (image)
-            {
-                gtk_image_set_from_pixbuf (GTK_IMAGE (user_image), image);
-                g_object_unref (image);
-                return;
-            }
-            else
-            {
-                g_warning ("Failed to load user image: %s", error->message);
-                g_clear_error (&error);
-            }
-        }
-    }
-    
-    if (default_user_pixbuf)
-        gtk_image_set_from_pixbuf (GTK_IMAGE (user_image), default_user_pixbuf);
-    else
-        gtk_image_set_from_icon_name (GTK_IMAGE (user_image), default_user_icon, GTK_ICON_SIZE_DIALOG);
-}
-
 /* Function translate user defined coordinates to absolute value */
 static gint
 get_absolute_position (const DimensionPosition *p, gint screen, gint window)
@@ -1140,45 +1066,28 @@ start_authentication (const gchar *username)
     g_key_file_set_value (state, "greeter", "last-user", username);
     save_state_file ();
 
-    if (g_strcmp0 (username, "*other") == 0)
+    LightDMUser *user;
+
+    user = lightdm_user_list_get_user_by_name (lightdm_user_list_get_instance (), username);
+    if (user)
     {
-        gtk_widget_show (GTK_WIDGET (username_entry));
-        gtk_widget_show (GTK_WIDGET (cancel_button));
-        lightdm_greeter_authenticate (greeter, NULL);
-    }
-    else if (g_strcmp0 (username, "*guest") == 0)
-    {
-        lightdm_greeter_authenticate_as_guest (greeter);
+        if (!current_session)
+            set_session (lightdm_user_get_session (user));
+        if (!current_language)
+            set_language (lightdm_user_get_language (user));
     }
     else
     {
-        LightDMUser *user;
-
-        user = lightdm_user_list_get_user_by_name (lightdm_user_list_get_instance (), username);
-        if (user)
-        {
-            if (!current_session)
-                set_session (lightdm_user_get_session (user));
-            if (!current_language)
-                set_language (lightdm_user_get_language (user));
-        }
-        else
-        {
-            set_session (NULL);
-            set_language (NULL);
-        }
-
-        lightdm_greeter_authenticate (greeter, username);
+        set_session (NULL);
+        set_language (NULL);
     }
+
+    lightdm_greeter_authenticate (greeter, username);
 }
 
 static void
 cancel_authentication (void)
 {
-    GtkTreeModel *model;
-    GtkTreeIter iter;
-    gboolean other = FALSE;
-
     if (pending_questions)
     {
         g_slist_free_full (pending_questions, (GDestroyNotify) pam_message_finalize);
@@ -1196,24 +1105,6 @@ cancel_authentication (void)
 
     /* Make sure password entry is back to normal */
     gtk_entry_set_visibility (password_entry, FALSE);
-
-    /* Force refreshing the prompt_box for "Other" */
-    model = gtk_combo_box_get_model (user_combo);
-
-    if (gtk_combo_box_get_active_iter (user_combo, &iter))
-    {
-        gchar *user;
-
-        gtk_tree_model_get (GTK_TREE_MODEL (model), &iter, 0, &user, -1);
-        other = (g_strcmp0 (user, "*other") == 0);
-        g_free (user);
-    }
-
-    /* Start a new login or return to the user list */
-    if (other || lightdm_greeter_get_hide_users_hint (greeter))
-        start_authentication ("*other");
-    else
-        gtk_widget_grab_focus (GTK_WIDGET (user_combo));
 }
 
 static void
@@ -1276,73 +1167,6 @@ power_menu_cb (GtkWidget *menuitem, gpointer userdata)
 }
 
 gboolean
-password_key_press_cb (GtkWidget *widget, GdkEventKey *event, gpointer user_data);
-G_MODULE_EXPORT
-gboolean
-password_key_press_cb (GtkWidget *widget, GdkEventKey *event, gpointer user_data)
-{
-    if ((event->keyval == GDK_KEY_Up || event->keyval == GDK_KEY_Down) &&
-        gtk_widget_get_visible(GTK_WIDGET(user_combo)))
-    {
-        gboolean available;
-        GtkTreeIter iter;
-        GtkTreeModel *model = gtk_combo_box_get_model (user_combo);
-
-        /* Back to username_entry if it is available */
-        if (event->keyval == GDK_KEY_Up &&
-            gtk_widget_get_visible (GTK_WIDGET (username_entry)) && widget == GTK_WIDGET (password_entry))
-        {
-            gtk_widget_grab_focus (GTK_WIDGET (username_entry));
-            return TRUE;
-        }
-
-        if (!gtk_combo_box_get_active_iter (user_combo, &iter))
-            return FALSE;
-
-        if (event->keyval == GDK_KEY_Up)
-            available = gtk_tree_model_iter_previous (model, &iter);
-        else
-            available = gtk_tree_model_iter_next (model, &iter);
-
-        if (available)
-            gtk_combo_box_set_active_iter (user_combo, &iter);
-
-        return TRUE;
-    }
-    return FALSE;
-}
-
-gboolean
-username_focus_out_cb (GtkWidget *widget, GdkEvent *event, gpointer user_data);
-G_MODULE_EXPORT
-gboolean
-username_focus_out_cb (GtkWidget *widget, GdkEvent *event, gpointer user_data)
-{
-    if (!g_strcmp0(gtk_entry_get_text(username_entry), "") == 0)
-        start_authentication(gtk_entry_get_text(username_entry));
-    return FALSE;
-}
-
-gboolean
-username_key_press_cb (GtkWidget *widget, GdkEventKey *event, gpointer user_data);
-G_MODULE_EXPORT
-gboolean
-username_key_press_cb (GtkWidget *widget, GdkEventKey *event, gpointer user_data)
-{
-    /* Acts as password_entry */
-    if (event->keyval == GDK_KEY_Up)
-        return password_key_press_cb (widget, event, user_data);
-    /* Enter activates the password entry */
-    else if (event->keyval == GDK_KEY_Return && gtk_widget_get_visible (GTK_WIDGET (password_entry)))
-    {
-        gtk_widget_grab_focus (GTK_WIDGET (password_entry));
-        return TRUE;
-    }
-    else
-        return FALSE;
-}
-
-gboolean
 menubar_key_press_cb (GtkWidget *widget, GdkEventKey *event, gpointer user_data);
 G_MODULE_EXPORT
 gboolean
@@ -1393,38 +1217,8 @@ login_window_key_press_cb (GtkWidget *widget, GdkEventKey *event, gpointer user_
 static void
 set_displayed_user (LightDMGreeter *greeter, const gchar *username)
 {
-    gchar *user_tooltip;
     LightDMUser *user;
 
-    if (g_strcmp0 (username, "*other") == 0)
-    {
-        gtk_widget_show (GTK_WIDGET (username_entry));
-        gtk_widget_show (GTK_WIDGET (cancel_button));
-        user_tooltip = g_strdup(_("Other"));
-    }
-    else
-    {
-        gtk_widget_hide (GTK_WIDGET (username_entry));
-        gtk_widget_hide (GTK_WIDGET (cancel_button));
-        user_tooltip = g_strdup(username);
-    }
-
-    /* At this moment we do not have information about possible prompts
-     * for current user (except *guest). So, password_entry.visible changed in:
-     *   auth_complete_cb
-     *   process_prompts
-     *   and here - for *guest */
-
-    if (g_strcmp0 (username, "*guest") == 0)
-    {
-        user_tooltip = g_strdup(_("Guest Session"));
-        gtk_widget_hide (GTK_WIDGET (password_entry));
-        gtk_widget_grab_focus (GTK_WIDGET (user_combo));
-    }
-
-    set_login_button_label (greeter, username);
-    set_user_background (username);
-    set_user_image (username);
     user = lightdm_user_list_get_user_by_name (lightdm_user_list_get_instance (), username);
     if (user)
     {
@@ -1433,32 +1227,7 @@ set_displayed_user (LightDMGreeter *greeter, const gchar *username)
     }
     else
         set_language (lightdm_language_get_code (lightdm_get_language ()));
-    gtk_widget_set_tooltip_text (GTK_WIDGET (user_combo), user_tooltip);
     start_authentication (username);
-    g_free (user_tooltip);
-}
-
-void user_combobox_active_changed_cb (GtkComboBox *widget, LightDMGreeter *greeter);
-G_MODULE_EXPORT
-void
-user_combobox_active_changed_cb (GtkComboBox *widget, LightDMGreeter *greeter)
-{
-    GtkTreeModel *model;
-    GtkTreeIter iter;
-
-    model = gtk_combo_box_get_model (user_combo);
-
-    if (gtk_combo_box_get_active_iter (user_combo, &iter))
-    {
-        gchar *user;
-
-        gtk_tree_model_get (GTK_TREE_MODEL (model), &iter, 0, &user, -1);
-
-        set_displayed_user(greeter, user);
-
-        g_free (user);
-    }
-    set_message_label (LIGHTDM_MESSAGE_TYPE_INFO, NULL);
 }
 
 static const gchar*
@@ -1473,24 +1242,8 @@ process_prompts (LightDMGreeter *greeter)
     if (!pending_questions)
         return;
 
-    /* always allow the user to change username again */
-    gtk_widget_set_sensitive (GTK_WIDGET (username_entry), TRUE);
+    /* always allow the user to change password again */
     gtk_widget_set_sensitive (GTK_WIDGET (password_entry), TRUE);
-
-    /* Special case: no user selected from list, so PAM asks us for the user
-     * via a prompt. For that case, use the username field */
-    if (!prompted && pending_questions && !pending_questions->next &&
-        ((PAMConversationMessage *) pending_questions->data)->is_prompt &&
-        ((PAMConversationMessage *) pending_questions->data)->type.prompt != LIGHTDM_PROMPT_TYPE_SECRET &&
-        gtk_widget_get_visible ((GTK_WIDGET (username_entry))) &&
-        lightdm_greeter_get_authentication_user (greeter) == NULL)
-    {
-        prompted = TRUE;
-        prompt_active = TRUE;
-        gtk_widget_grab_focus (GTK_WIDGET (username_entry));
-        gtk_widget_show (GTK_WIDGET (password_entry));
-        return;
-    }
 
     while (pending_questions)
     {
@@ -1547,7 +1300,7 @@ login_cb (GtkWidget *widget)
     if (lightdm_greeter_get_lock_hint (greeter))
         XSetScreenSaver(gdk_x11_display_get_xdisplay(gdk_display_get_default ()), timeout, interval, prefer_blanking, allow_exposures);        
 
-    gtk_widget_set_sensitive (GTK_WIDGET (username_entry), FALSE);
+    /* prevent user from changing password */
     gtk_widget_set_sensitive (GTK_WIDGET (password_entry), FALSE);
     set_message_label (LIGHTDM_MESSAGE_TYPE_INFO, NULL);
     prompt_active = FALSE;
@@ -1573,25 +1326,6 @@ void
 cancel_cb (GtkWidget *widget)
 {
     cancel_authentication ();
-}
-
-gboolean
-user_combo_key_press_cb (GtkWidget *widget, GdkEventKey *event, gpointer user_data);
-G_MODULE_EXPORT
-gboolean
-user_combo_key_press_cb (GtkWidget *widget, GdkEventKey *event, gpointer user_data)
-{
-    if (event->keyval == GDK_KEY_Return)
-    {
-        if (gtk_widget_get_visible (GTK_WIDGET (username_entry)))
-            gtk_widget_grab_focus (GTK_WIDGET (username_entry));
-        else if (gtk_widget_get_visible (GTK_WIDGET (password_entry)))
-            gtk_widget_grab_focus (GTK_WIDGET (password_entry));
-        else
-            login_cb (GTK_WIDGET (login_button));
-        return TRUE;
-    }
-    return FALSE;
 }
 
 static void
@@ -1646,13 +1380,7 @@ authentication_complete_cb (LightDMGreeter *greeter)
 
     if (lightdm_greeter_get_is_authenticated (greeter))
     {
-        if (prompted)
-            start_session ();
-        else
-        {
-            gtk_widget_hide (GTK_WIDGET (password_entry));
-            gtk_widget_grab_focus (GTK_WIDGET (user_combo));
-        }
+        start_session ();
     }
     else
     {
@@ -1728,9 +1456,7 @@ show_power_prompt (const gchar* action, const gchar* message, const gchar* icon,
                                      GTK_MESSAGE_OTHER,
                                      GTK_BUTTONS_NONE,
                                      "%s", action);
-    gtk_message_dialog_format_secondary_markup (GTK_MESSAGE_DIALOG (dialog), "%s", message);        
-    button = gtk_dialog_add_button(GTK_DIALOG (dialog), _("Cancel"), GTK_RESPONSE_CANCEL);
-    gtk_widget_set_name(button, "cancel_button");
+    gtk_message_dialog_format_secondary_markup (GTK_MESSAGE_DIALOG (dialog), "%s", message);
     button = gtk_dialog_add_button(GTK_DIALOG (dialog), action, GTK_RESPONSE_OK);
     gtk_widget_set_name(button, button_name);
 
@@ -1778,82 +1504,6 @@ shutdown_cb (GtkWidget *widget, LightDMGreeter *greeter)
     if (show_power_prompt(_("Shut Down"), _("Are you sure you want to close all programs and shut down the computer?"),
                           "system-shutdown-symbolic", "shutdown_dialog", "shutdown_button"))
         lightdm_shutdown (NULL);
-}
-
-static void
-user_added_cb (LightDMUserList *user_list, LightDMUser *user, LightDMGreeter *greeter)
-{
-    GtkTreeModel *model;
-    GtkTreeIter iter;
-    gboolean logged_in = FALSE;
-
-    model = gtk_combo_box_get_model (user_combo);
-
-    logged_in = lightdm_user_get_logged_in (user);
-
-    gtk_list_store_append (GTK_LIST_STORE (model), &iter);
-    gtk_list_store_set (GTK_LIST_STORE (model), &iter,
-                        0, lightdm_user_get_name (user),
-                        1, lightdm_user_get_display_name (user),
-                        2, logged_in ? PANGO_WEIGHT_BOLD : PANGO_WEIGHT_NORMAL,
-                        -1);
-}
-
-static gboolean
-get_user_iter (const gchar *username, GtkTreeIter *iter)
-{
-    GtkTreeModel *model;
-
-    model = gtk_combo_box_get_model (user_combo);
-
-    if (!gtk_tree_model_get_iter_first (model, iter))
-        return FALSE;
-    do
-    {
-        gchar *name;
-        gboolean matched;
-
-        gtk_tree_model_get (model, iter, 0, &name, -1);
-        matched = g_strcmp0 (name, username) == 0;
-        g_free (name);
-        if (matched)
-            return TRUE;
-    } while (gtk_tree_model_iter_next (model, iter));
-
-    return FALSE;
-}
-
-static void
-user_changed_cb (LightDMUserList *user_list, LightDMUser *user, LightDMGreeter *greeter)
-{
-    GtkTreeModel *model;
-    GtkTreeIter iter;
-    gboolean logged_in = FALSE;
-
-    if (!get_user_iter (lightdm_user_get_name (user), &iter))
-        return;
-    logged_in = lightdm_user_get_logged_in (user);
-
-    model = gtk_combo_box_get_model (user_combo);
-
-    gtk_list_store_set (GTK_LIST_STORE (model), &iter,
-                        0, lightdm_user_get_name (user),
-                        1, lightdm_user_get_display_name (user),
-                        2, logged_in ? PANGO_WEIGHT_BOLD : PANGO_WEIGHT_NORMAL,
-                        -1);
-}
-
-static void
-user_removed_cb (LightDMUserList *user_list, LightDMUser *user)
-{
-    GtkTreeModel *model;
-    GtkTreeIter iter;
-
-    if (!get_user_iter (lightdm_user_get_name (user), &iter))
-        return;
-
-    model = gtk_combo_box_get_model (user_combo);
-    gtk_list_store_remove (GTK_LIST_STORE (model), &iter);
 }
 
 void a11y_font_cb (GtkCheckMenuItem *item);
@@ -1927,95 +1577,6 @@ a11y_reader_cb (GtkCheckMenuItem *item, gpointer user_data)
         menu_command_run (a11y_reader_command);
     else
         menu_command_stop (a11y_reader_command);
-}
-
-static void
-load_user_list (void)
-{
-    const GList *items, *item;
-    GtkTreeModel *model;
-    GtkTreeIter iter;
-    gchar *last_user;
-    const gchar *selected_user;
-    gboolean logged_in = FALSE;
-
-    g_signal_connect (lightdm_user_list_get_instance (), "user-added", G_CALLBACK (user_added_cb), greeter);
-    g_signal_connect (lightdm_user_list_get_instance (), "user-changed", G_CALLBACK (user_changed_cb), greeter);
-    g_signal_connect (lightdm_user_list_get_instance (), "user-removed", G_CALLBACK (user_removed_cb), NULL);
-    model = gtk_combo_box_get_model (user_combo);
-    items = lightdm_user_list_get_users (lightdm_user_list_get_instance ());
-    for (item = items; item; item = item->next)
-    {
-        LightDMUser *user = item->data;
-        logged_in = lightdm_user_get_logged_in (user);
-
-        gtk_list_store_append (GTK_LIST_STORE (model), &iter);
-        gtk_list_store_set (GTK_LIST_STORE (model), &iter,
-                            0, lightdm_user_get_name (user),
-                            1, lightdm_user_get_display_name (user),
-                            2, logged_in ? PANGO_WEIGHT_BOLD : PANGO_WEIGHT_NORMAL,
-                            -1);
-    }
-    if (lightdm_greeter_get_has_guest_account_hint (greeter))
-    {
-        gtk_list_store_append (GTK_LIST_STORE (model), &iter);
-        gtk_list_store_set (GTK_LIST_STORE (model), &iter,
-                            0, "*guest",
-                            1, _("Guest Session"),
-                            2, PANGO_WEIGHT_NORMAL,
-                            -1);
-    }
-
-    gtk_list_store_append (GTK_LIST_STORE (model), &iter);
-    gtk_list_store_set (GTK_LIST_STORE (model), &iter,
-                        0, "*other",
-                        1, _("Other..."),
-                        2, PANGO_WEIGHT_NORMAL,
-                        -1);
-
-    last_user = g_key_file_get_value (state, "greeter", "last-user", NULL);
-
-    if (lightdm_greeter_get_select_user_hint (greeter))
-        selected_user = lightdm_greeter_get_select_user_hint (greeter);
-    else if (lightdm_greeter_get_select_guest_hint (greeter))
-        selected_user = "*guest";
-    else if (last_user)
-        selected_user = last_user;
-    else
-        selected_user = NULL;
-
-    if (gtk_tree_model_get_iter_first (model, &iter))
-    {
-        gchar *name;
-        gboolean matched = FALSE;
-        
-        if (selected_user)
-        {
-            do
-            {
-                gtk_tree_model_get (model, &iter, 0, &name, -1);
-                matched = g_strcmp0 (name, selected_user) == 0;
-                g_free (name);
-                if (matched)
-                {
-                    gtk_combo_box_set_active_iter (user_combo, &iter);
-                    set_displayed_user (greeter, selected_user);
-                    break;
-                }
-            } while (gtk_tree_model_iter_next (model, &iter));
-        }
-        if (!matched)
-        {
-            gtk_tree_model_get_iter_first (model, &iter);
-            gtk_tree_model_get (model, &iter, 0, &name, -1);
-            gtk_combo_box_set_active_iter (user_combo, &iter);
-            set_displayed_user(greeter, name);
-            g_free(name);
-        }
-        
-    }
-
-    g_free (last_user);
 }
 
 static gboolean
@@ -2433,12 +1994,9 @@ main (int argc, char **argv)
     /* Login window */
     login_window = GTK_WINDOW (gtk_builder_get_object (builder, "login_window"));
     user_image = GTK_IMAGE (gtk_builder_get_object (builder, "user_image"));
-    user_combo = GTK_COMBO_BOX (gtk_builder_get_object (builder, "user_combobox"));
-    username_entry = GTK_ENTRY (gtk_builder_get_object (builder, "username_entry"));
     password_entry = GTK_ENTRY (gtk_builder_get_object (builder, "password_entry"));
     info_bar = GTK_INFO_BAR (gtk_builder_get_object (builder, "greeter_infobar"));
     message_label = GTK_LABEL (gtk_builder_get_object (builder, "message_label"));
-    cancel_button = GTK_BUTTON (gtk_builder_get_object (builder, "cancel_button"));
     login_button = GTK_BUTTON (gtk_builder_get_object (builder, "login_button"));
 
     /* Panel */
@@ -2475,7 +2033,6 @@ main (int argc, char **argv)
     {
         gtk_widget_hide (GTK_WIDGET (gtk_builder_get_object (builder, "user_image_border")));
         gtk_widget_hide (GTK_WIDGET (user_image));  /* Hide to mark image is disabled */
-        gtk_widget_set_size_request (GTK_WIDGET (user_combo), 250, -1);
     }
     else
     {
@@ -2713,20 +2270,6 @@ main (int argc, char **argv)
     greeter_background_add_subwindow (greeter_background, panel_window);
     greeter_background_connect (greeter_background, gdk_screen_get_default ());
 
-    if (lightdm_greeter_get_hide_users_hint (greeter))
-    {
-        set_user_image (NULL);
-        start_authentication ("*other");
-    }
-    else
-    {
-        gchar *last_user = g_key_file_get_value (state, "greeter", "last-user", NULL);
-        set_displayed_user (greeter, last_user);
-        start_authentication (last_user);
-        gtk_widget_hide (GTK_WIDGET (cancel_button));
-        gtk_widget_hide (GTK_WIDGET (user_combo));
-    }
-
     /* Windows positions */
     main_window_pos = WINDOW_POS_CENTER;
     value = g_key_file_get_value (config, "greeter", "position", NULL);
@@ -2800,6 +2343,11 @@ main (int argc, char **argv)
     GdkWindow* root_window = gdk_get_default_root_window ();
     gdk_window_set_events (root_window, gdk_window_get_events (root_window) | GDK_SUBSTRUCTURE_MASK);
     gdk_window_add_filter (root_window, focus_upon_map, NULL);
+
+    /* load user */
+    // items = lightdm_user_list_get_users (lightdm_user_list_get_instance ());
+    set_displayed_user (greeter, g_key_file_get_value (state, "greeter", "last-user", NULL));
+    gtk_image_set_from_pixbuf (GTK_IMAGE (user_image), default_user_pixbuf);
 
     gtk_main ();
 
