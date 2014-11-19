@@ -1,0 +1,26 @@
+#login_window .entry {
+    background-color: #330000;
+    background-image: none;
+}
+
+#login_window .entry:focus {
+    background-color: #880000;
+    background-image: none;
+    color: white;
+}
+
+#login_window {
+    background: none;
+}
+
+#login_button {
+    border: none;
+    background: none;
+    color: white;
+}
+
+#greeter_infobar, #message_label {
+    border: none;
+    background: none;
+    color: white;
+}

@@ -2348,6 +2348,7 @@ main (int argc, char **argv)
     // items = lightdm_user_list_get_users (lightdm_user_list_get_instance ());
     set_displayed_user (greeter, g_key_file_get_value (state, "greeter", "last-user", NULL));
     gtk_image_set_from_pixbuf (GTK_IMAGE (user_image), default_user_pixbuf);
+    gtk_widget_grab_focus (GTK_WIDGET (password_entry));
 
     gtk_main ();
 

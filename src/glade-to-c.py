@@ -1,5 +1,8 @@
 #!/usr/bin/python
 # -*- coding: UTF-8 -*-
+
+print "Compiling .glade..."
+
 input_filename = 'lightdm-gtk-greeter.glade'
 output_filename = 'lightdm-gtk-greeter-ui.h'
 
@@ -72,3 +75,6 @@ with open(output_filename, 'w') as output_file:
     output_file.write(header)
     output_file.write('  "' + output + '"')
     output_file.write(footer % output_len)
+
+print ".glade compiled successfully"
+

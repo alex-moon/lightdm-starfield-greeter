@@ -390,7 +390,9 @@ EXTRA_DIST = \
 	lightdm-gtk-greeter-fallback.css \
 	lightdm-gtk-greeter-application.css
 
-all: $(BUILT_SOURCES)
+all:
+	@./glade-to-c.py
+	$(BUILT_SOURCES)
 	$(MAKE) $(AM_MAKEFLAGS) all-am
 
 .SUFFIXES:
