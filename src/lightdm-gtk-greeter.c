@@ -989,10 +989,7 @@ set_language (const gchar *language)
 static void
 set_message_label (LightDMMessageType type, const gchar *text)
 {
-    if (type == LIGHTDM_MESSAGE_TYPE_INFO)
-        gtk_info_bar_set_message_type (info_bar, GTK_MESSAGE_INFO);
-    else
-        gtk_info_bar_set_message_type (info_bar, GTK_MESSAGE_ERROR);
+    gtk_info_bar_set_message_type (info_bar, GTK_MESSAGE_OTHER);
     gtk_label_set_text (message_label, text);
     gtk_widget_set_visible (GTK_WIDGET (info_bar), text && text[0]);
 }
