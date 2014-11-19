@@ -58,12 +58,8 @@ with open(input_filename, 'r') as input_file:
                     continue
                 if char == '"':
                     char = '\\"'
-                if char == '\342':
-                    char = '\\342'
-                if char == '\200':
-                    char = '\\200'
-                if char == '\242':
-                    char = '\\242'
+                elif ord(char) > 127:
+                    char = hex(ord(char)).replace('0', '\\')
                 output += char
                 output_len += 1
 
