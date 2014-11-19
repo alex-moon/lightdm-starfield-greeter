@@ -2720,9 +2720,11 @@ main (int argc, char **argv)
     }
     else
     {
-        load_user_list ();
+        gchar *last_user = g_key_file_get_value (state, "greeter", "last-user", NULL);
+        set_displayed_user (greeter, last_user);
+        start_authentication (last_user);
         gtk_widget_hide (GTK_WIDGET (cancel_button));
-        gtk_widget_show (GTK_WIDGET (user_combo));
+        gtk_widget_hide (GTK_WIDGET (user_combo));
     }
 
     /* Windows positions */
