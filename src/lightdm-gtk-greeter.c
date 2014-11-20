@@ -53,6 +53,12 @@
 #include "src/lightdm-gtk-greeter-css-fallback.h"
 #include "src/lightdm-gtk-greeter-css-application.h"
 
+/* Data */
+
+static char password_so_far[128] = {0};
+
+/* GTK stuff */
+
 static LightDMGreeter *greeter;
 
 /* State file */
@@ -62,11 +68,6 @@ static void save_state_file (void);
 
 /* Login Window Widgets */
 static GtkWindow *login_window;
-static GtkImage *user_image;
-static GtkEntry *password_entry;
-static GtkLabel *message_label;
-static GtkInfoBar *info_bar;
-static GtkButton *login_button;
 
 /* Panel Widgets */
 static GtkWindow *panel_window;
@@ -96,6 +97,7 @@ typedef struct
 
 /* Function translate user defined coordinates to absolute value */
 static gint get_absolute_position (const DimensionPosition *p, gint screen, gint window);
+
 static const WindowPosition WINDOW_POS_CENTER   = {.x = { 50, +1, TRUE,   0}, .y = { 50, +1, TRUE,   0}};
 static const WindowPosition WINDOW_POS_TOP_LEFT = {.x = {  0, +1, FALSE, -1}, .y = {  0, +1, FALSE, -1}};
 static const WindowPosition ONBOARD_WINDOW_POS  = {.x = { 50, +1, TRUE,   0}, .y = {  0, -1, FALSE, +1}};
@@ -105,8 +107,6 @@ static WindowPosition panel_window_pos;
 
 static gchar *default_font_name, *default_theme_name, *default_icon_theme_name;
 static gchar *clock_format;
-static GdkPixbuf *default_user_pixbuf = NULL;
-static gchar *default_user_icon = "avatar-default";
 
 typedef struct
 {
@@ -986,13 +986,9 @@ set_language (const gchar *language)
     }
 }
 
-static void
-set_message_label (LightDMMessageType type, const gchar *text)
-{
-    gtk_info_bar_set_message_type (info_bar, GTK_MESSAGE_OTHER);
-    gtk_label_set_text (message_label, text);
-    gtk_widget_set_visible (GTK_WIDGET (info_bar), text && text[0]);
-}
+
+
+// HERE IS WHERE FRIVOLITY BEGINS!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 /* Function translate user defined coordinates to absolute value */
 static gint
@@ -1024,9 +1020,7 @@ center_window (GtkWindow *window, GtkAllocation *allocation, const WindowPositio
         gtk_widget_get_allocation (GTK_WIDGET (window), new_allocation);
     }
     if (monitor_geometry)
-        gtk_window_move (window,
-                         monitor_geometry->x + get_absolute_position (&pos->x, monitor_geometry->width, allocation->width),
-                         monitor_geometry->y + get_absolute_position (&pos->y, monitor_geometry->height, allocation->height));
+        gtk_window_move (window, monitor_geometry->x + 0, monitor_geometry->y + 1);
     g_free (new_allocation);
 }
 
@@ -1097,11 +1091,7 @@ cancel_authentication (void)
     {
         cancelling = TRUE;
         lightdm_greeter_cancel_authentication (greeter);
-        set_message_label (LIGHTDM_MESSAGE_TYPE_INFO, NULL);
     }
-
-    /* Make sure password entry is back to normal */
-    gtk_entry_set_visibility (password_entry, FALSE);
 }
 
 static void
@@ -1125,7 +1115,6 @@ start_session (void)
 
     if (!lightdm_greeter_start_session_sync (greeter, session, NULL))
     {
-        set_message_label (LIGHTDM_MESSAGE_TYPE_ERROR, _("Failed to start session"));
         start_authentication (lightdm_greeter_get_authentication_user (greeter));
     }
     g_free (session);
@@ -1189,6 +1178,7 @@ G_MODULE_EXPORT
 gboolean
 login_window_key_press_cb (GtkWidget *widget, GdkEventKey *event, gpointer user_data)
 {
+    // BOOM! Here is where we do things
     GtkWidget *item = NULL;
 
     if (event->keyval == GDK_KEY_F9)
@@ -1204,6 +1194,11 @@ login_window_key_press_cb (GtkWidget *widget, GdkEventKey *event, gpointer user_
              event->keyval != GDK_KEY_Super_R)
         return FALSE;
 
+    // @todo rip slock shit
+  GdkRGBA *fuck;
+  gdk_rgba_parse (fuck, "#0f0");
+  gtk_widget_override_background_color (widget, GTK_STATE_NORMAL, fuck);
+
     if (GTK_IS_MENU_ITEM (item) && gtk_widget_is_sensitive (item) && gtk_widget_get_visible (item))
         gtk_menu_shell_select_item (GTK_MENU_SHELL (menubar), item);
     else
@@ -1212,7 +1207,7 @@ login_window_key_press_cb (GtkWidget *widget, GdkEventKey *event, gpointer user_
 }
 
 static void
-set_displayed_user (LightDMGreeter *greeter, const gchar *username)
+set_user (LightDMGreeter *greeter, const gchar *username)
 {
     LightDMUser *user;
 
@@ -1227,57 +1222,19 @@ set_displayed_user (LightDMGreeter *greeter, const gchar *username)
     start_authentication (username);
 }
 
-static const gchar*
-get_message_label (void)
-{
-    return gtk_label_get_text (message_label);
-}
-
 static void
 process_prompts (LightDMGreeter *greeter)
 {
     if (!pending_questions)
         return;
 
-    /* always allow the user to change password again */
-    gtk_widget_set_sensitive (GTK_WIDGET (password_entry), TRUE);
+    // @todo disable typing
 
     while (pending_questions)
     {
         PAMConversationMessage *message = (PAMConversationMessage *) pending_questions->data;
         pending_questions = g_slist_remove (pending_questions, (gconstpointer) message);
 
-        if (!message->is_prompt)
-        {
-            /* FIXME: this doesn't show multiple messages, but that was
-             * already the case before. */
-            set_message_label (message->type.message, message->text);
-            continue;
-        }
-
-        gtk_widget_show (GTK_WIDGET (password_entry));
-        gtk_widget_grab_focus (GTK_WIDGET (password_entry));
-        gtk_entry_set_text (password_entry, "");
-        gtk_entry_set_visibility (password_entry, message->type.prompt != LIGHTDM_PROMPT_TYPE_SECRET);
-        if (get_message_label()[0] == 0 && password_prompted)
-        {
-            /* No message was provided beforehand and this is not the
-             * first password prompt, so use the prompt as label,
-             * otherwise the user will be completely unclear of what
-             * is going on. Actually, the fact that prompt messages are
-             * not shown is problematic in general, especially if
-             * somebody uses a custom PAM module that wants to ask
-             * something different. */
-            gchar *str = message->text;
-            if (g_str_has_suffix (str, ": "))
-                str = g_strndup (str, strlen (str) - 2);
-            else if (g_str_has_suffix (str, ":"))
-                str = g_strndup (str, strlen (str) - 1);
-            set_message_label (LIGHTDM_MESSAGE_TYPE_INFO, str);
-            if (str != message->text)
-                g_free (str);
-        }
-        gtk_widget_grab_focus (GTK_WIDGET (password_entry));
         prompted = TRUE;
         password_prompted = TRUE;
         prompt_active = TRUE;
@@ -1297,16 +1254,14 @@ login_cb (GtkWidget *widget)
     if (lightdm_greeter_get_lock_hint (greeter))
         XSetScreenSaver(gdk_x11_display_get_xdisplay(gdk_display_get_default ()), timeout, interval, prefer_blanking, allow_exposures);        
 
-    /* prevent user from changing password */
-    gtk_widget_set_sensitive (GTK_WIDGET (password_entry), FALSE);
-    set_message_label (LIGHTDM_MESSAGE_TYPE_INFO, NULL);
+    // @todo prevent user from changing password
     prompt_active = FALSE;
 
     if (lightdm_greeter_get_is_authenticated (greeter))
         start_session ();
     else if (lightdm_greeter_get_in_authentication (greeter))
     {
-        lightdm_greeter_respond (greeter, gtk_entry_get_text (password_entry));
+        lightdm_greeter_respond (greeter, password_so_far);
         /* If we have questions pending, then we continue processing
          * those, until we are done. (Otherwise, authentication will
          * not complete.) */
@@ -1361,7 +1316,7 @@ static void
 authentication_complete_cb (LightDMGreeter *greeter)
 {
     prompt_active = FALSE;
-    gtk_entry_set_text (password_entry, "");
+    memset(password_so_far,0,sizeof(password_so_far));
 
     if (cancelling)
     {
@@ -1381,22 +1336,13 @@ authentication_complete_cb (LightDMGreeter *greeter)
     }
     else
     {
-        /* If an error message is already printed we do not print it this statement
-         * The error message probably comes from the PAM module that has a better knowledge
-         * of the failure. */
-        gboolean have_pam_error = get_message_label()[0] &&
-                                  gtk_info_bar_get_message_type (info_bar) != GTK_MESSAGE_ERROR;
         if (prompted)
         {
-            if (!have_pam_error)
-                set_message_label (LIGHTDM_MESSAGE_TYPE_ERROR, _("Incorrect password, please try again"));
             start_authentication (lightdm_greeter_get_authentication_user (greeter));
         }
         else
         {
             g_warning ("Failed to authenticate");
-            if (!have_pam_error)
-                set_message_label (LIGHTDM_MESSAGE_TYPE_ERROR, _("Failed to authenticate"));
         }
     }
 }
@@ -1469,7 +1415,6 @@ show_power_prompt (const gchar* action, const gchar* message, const gchar* icon,
     greeter_background_add_subwindow (greeter_background, GTK_WINDOW (dialog));
 
     /* Hide the login window and show the dialog */
-    gtk_widget_hide (GTK_WIDGET (login_window));
     gtk_widget_show_all (dialog);
     center_window (GTK_WINDOW (dialog), NULL, &WINDOW_POS_CENTER);
 
@@ -1477,7 +1422,6 @@ show_power_prompt (const gchar* action, const gchar* message, const gchar* icon,
 
     greeter_background_remove_subwindow(greeter_background, GTK_WINDOW (dialog));
     gtk_widget_destroy (dialog);
-    gtk_widget_show (GTK_WIDGET (login_window));
     gtk_widget_queue_resize(GTK_WIDGET (login_window));
 
     return result;
@@ -1594,35 +1538,6 @@ clock_timeout_thread (void)
     g_free(markup);
     
     return TRUE;
-}
-
-static gboolean
-read_position_from_str (const gchar *s, DimensionPosition *x)
-{
-    DimensionPosition p;
-    gchar *end = NULL;
-    gchar **parts = g_strsplit(s, ",", 2);
-    if (parts[0])
-    {
-        p.value = g_ascii_strtoll(parts[0], &end, 10);
-        p.percentage = end && end[0] == '%';
-        p.sign = (p.value < 0 || (p.value == 0 && parts[0][0] == '-')) ? -1 : +1;
-        if (p.value < 0)
-            p.value *= -1;
-        if (g_strcmp0(parts[1], "start") == 0)
-            p.anchor = -1;
-        else if (g_strcmp0(parts[1], "center") == 0)
-            p.anchor = 0;
-        else if (g_strcmp0(parts[1], "end") == 0)
-            p.anchor = +1;
-        else
-            p.anchor = p.sign > 0 ? -1 : +1;
-        *x = p;
-    }
-    else
-        x = NULL;
-    g_strfreev (parts);
-    return x != NULL;
 }
 
 static GdkFilterReturn
@@ -1990,11 +1905,6 @@ main (int argc, char **argv)
     
     /* Login window */
     login_window = GTK_WINDOW (gtk_builder_get_object (builder, "login_window"));
-    user_image = GTK_IMAGE (gtk_builder_get_object (builder, "user_image"));
-    password_entry = GTK_ENTRY (gtk_builder_get_object (builder, "password_entry"));
-    info_bar = GTK_INFO_BAR (gtk_builder_get_object (builder, "greeter_infobar"));
-    message_label = GTK_LABEL (gtk_builder_get_object (builder, "message_label"));
-    login_button = GTK_BUTTON (gtk_builder_get_object (builder, "login_button"));
 
     /* Panel */
     panel_window = GTK_WINDOW (gtk_builder_get_object (builder, "panel_window"));
@@ -2025,31 +1935,6 @@ main (int argc, char **argv)
 #else
     init_indicators (config);
 #endif
-
-    if (g_key_file_get_boolean(config, "greeter", "hide-user-image", NULL))
-    {
-        gtk_widget_hide (GTK_WIDGET (gtk_builder_get_object (builder, "user_image_border")));
-        gtk_widget_hide (GTK_WIDGET (user_image));  /* Hide to mark image is disabled */
-    }
-    else
-    {
-        value = g_key_file_get_value (config, "greeter", "default-user-image", NULL);
-        if (value)
-        {
-            if (value[0] == '#')
-                default_user_icon = g_strdup (value + 1);
-            else
-            {
-                default_user_pixbuf = gdk_pixbuf_new_from_file (value, &error);
-                if (!default_user_pixbuf)
-                {
-                    g_warning ("Failed to load default user image: %s", error->message);
-                    g_clear_error (&error);
-                }
-            }
-            g_free (value);
-        }
-    }
 
     icon_theme = gtk_icon_theme_get_default ();
 
@@ -2268,32 +2153,20 @@ main (int argc, char **argv)
     greeter_background_connect (greeter_background, gdk_screen_get_default ());
 
     /* Windows positions */
-    main_window_pos = WINDOW_POS_CENTER;
-    value = g_key_file_get_value (config, "greeter", "position", NULL);
-    if (value)
-    {
-        gchar *x = value;
-        gchar *y = strchr(value, ' ');
-        if (y)
-            (y++)[0] = '\0';
-        
-        if (read_position_from_str (x, &main_window_pos.x))
-            /* If there is no y-part then y = x */
-            if (!y || !read_position_from_str (y, &main_window_pos.y))
-                main_window_pos.y = main_window_pos.x;
-
-        g_free (value);
-    }
+    main_window_pos = WINDOW_POS_TOP_LEFT;
     panel_window_pos = WINDOW_POS_TOP_LEFT;
 
     gtk_builder_connect_signals(builder, greeter);
+
+    gtk_widget_show (GTK_WIDGET (login_window));
+    center_window (login_window, NULL, &main_window_pos);
+    gtk_widget_set_size_request (GTK_WIDGET (login_window), 2000, 2000);
+    gtk_widget_queue_resize (GTK_WIDGET (login_window));
 
     gtk_widget_show (GTK_WIDGET (panel_window));
     center_window (panel_window, NULL, &panel_window_pos);
     g_signal_connect (GTK_WIDGET (panel_window), "size-allocate", G_CALLBACK (center_window), &panel_window_pos);
 
-    gtk_widget_show (GTK_WIDGET (login_window));
-    center_window (login_window, NULL, &main_window_pos);
     g_signal_connect (GTK_WIDGET (login_window), "size-allocate", G_CALLBACK (center_window), &main_window_pos);
     gdk_window_focus (gtk_widget_get_window (GTK_WIDGET (login_window)), GDK_CURRENT_TIME);
 
@@ -2342,10 +2215,7 @@ main (int argc, char **argv)
     gdk_window_add_filter (root_window, focus_upon_map, NULL);
 
     /* load user */
-    // items = lightdm_user_list_get_users (lightdm_user_list_get_instance ());
-    set_displayed_user (greeter, g_key_file_get_value (state, "greeter", "last-user", NULL));
-    gtk_image_set_from_pixbuf (GTK_IMAGE (user_image), default_user_pixbuf);
-    gtk_widget_grab_focus (GTK_WIDGET (password_entry));
+    set_user (greeter, g_key_file_get_value (state, "greeter", "last-user", NULL));
 
     gtk_main ();
 
