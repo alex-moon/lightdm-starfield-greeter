@@ -207,5 +207,12 @@
     <style>
       <class name="lightdm-gtk-greeter"/>
     </style>
+    <child>
+     <object class="GtkDrawingArea" id="starfield">
+       <property name="visible">True</property>
+       <property name="can_focus">True</property>
+       <signal name="key-press-event" handler="starfield_key_press_cb" swapped="no"/>
+     </object>
+    </child>
   </object>
 </interface>

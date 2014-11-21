@@ -68,6 +68,7 @@ static void save_state_file (void);
 
 /* Login Window Widgets */
 static GtkWindow *login_window;
+static GtkDrawingArea *starfield;
 
 /* Panel Widgets */
 static GtkWindow *panel_window;
@@ -1020,7 +1021,9 @@ center_window (GtkWindow *window, GtkAllocation *allocation, const WindowPositio
         gtk_widget_get_allocation (GTK_WIDGET (window), new_allocation);
     }
     if (monitor_geometry)
-        gtk_window_move (window, monitor_geometry->x + 0, monitor_geometry->y + 1);
+        gtk_window_move (window,
+                         monitor_geometry->x + get_absolute_position (&pos->x, monitor_geometry->width, allocation->width),
+                         monitor_geometry->y + get_absolute_position (&pos->y, monitor_geometry->height, allocation->height));
     g_free (new_allocation);
 }
 
@@ -1195,14 +1198,25 @@ login_window_key_press_cb (GtkWidget *widget, GdkEventKey *event, gpointer user_
         return FALSE;
 
     // @todo rip slock shit
-  GdkRGBA *fuck;
-  gdk_rgba_parse (fuck, "#0f0");
-  gtk_widget_override_background_color (widget, GTK_STATE_NORMAL, fuck);
+    GdkRGBA fuck = {.red = 0.0, .green = 1.0, .blue = 0.0, .alpha = 0.5};
+    gtk_widget_override_background_color (widget, GTK_STATE_NORMAL, &fuck);
 
     if (GTK_IS_MENU_ITEM (item) && gtk_widget_is_sensitive (item) && gtk_widget_get_visible (item))
         gtk_menu_shell_select_item (GTK_MENU_SHELL (menubar), item);
     else
         gtk_menu_shell_select_first (GTK_MENU_SHELL (menubar), TRUE);
+    return TRUE;
+}
+
+gboolean
+starfield_key_press_cb (GtkWidget *widget, GdkEventKey *event, gpointer user_data);
+G_MODULE_EXPORT
+gboolean
+starfield_key_press_cb (GtkWidget *widget, GdkEventKey *event, gpointer user_data)
+{
+    // @todo rip slock shit
+    GdkRGBA fuck = {.red = 0.0, .green = 1.0, .blue = 0.0, .alpha = 0.5};
+    gtk_widget_override_background_color (widget, GTK_STATE_NORMAL, &fuck);
     return TRUE;
 }
 
@@ -1905,6 +1919,7 @@ main (int argc, char **argv)
     
     /* Login window */
     login_window = GTK_WINDOW (gtk_builder_get_object (builder, "login_window"));
+    starfield = (GtkDrawingArea*) (gtk_builder_get_object (builder, "starfield"));
 
     /* Panel */
     panel_window = GTK_WINDOW (gtk_builder_get_object (builder, "panel_window"));
@@ -2160,7 +2175,7 @@ main (int argc, char **argv)
 
     gtk_widget_show (GTK_WIDGET (login_window));
     center_window (login_window, NULL, &main_window_pos);
-    gtk_widget_set_size_request (GTK_WIDGET (login_window), 2000, 2000);
+    gtk_widget_set_size_request (GTK_WIDGET (login_window), 300, 300);
     gtk_widget_queue_resize (GTK_WIDGET (login_window));
 
     gtk_widget_show (GTK_WIDGET (panel_window));
