@@ -2018,21 +2018,38 @@ starfield_key_press_cb (GtkWidget *widget, GdkEventKey *event, gpointer user_dat
         case GDK_KEY_Return:
             // OH SHIT TIME TO LOGIN MOTHERFUCKERS
             login_cb (widget);
+            break;
+        case GDK_KEY_BackSpace:
+            ZERO_PASSWORD;
+            break;
         default:
             new_char = gdk_keyval_to_unicode (event->keyval);
             __bswap_32(new_char);
-            char *fuck = &new_char;
+            char *fuck = (char *) &new_char;
             new_char_len = strlen(fuck);
             if (new_char && prompt_active) {
-                memcpy(password_so_far + password_so_far_len, fuck, 4);
-                password_so_far_len += new_char_len;
-                if (password_so_far_len >= PASSWORD_MAX) {
+                if (password_so_far_len + new_char_len >= PASSWORD_MAX) {
                     password_so_far_len = 0;
+                } else {
+                    memcpy(password_so_far + password_so_far_len, fuck, 4);
+                    password_so_far_len += new_char_len;
                 }
             }
+            break;
     }
     gtk_widget_queue_draw (GTK_WIDGET (starfield));
     return TRUE;
+}
+
+static void
+maximise_login_window(void)
+{
+    GdkRectangle screen;
+    gdk_screen_get_monitor_geometry (gdk_screen_get_default (),
+                                     /* must be replaced with background->active_monitor */
+                                     gdk_screen_get_primary_monitor (gdk_screen_get_default ()),
+                                     &screen);
+    gtk_widget_set_size_request (GTK_WIDGET (login_window), screen.width, screen.height - 100);
 }
 
 int
@@ -2437,7 +2454,7 @@ main (int argc, char **argv)
 
     gtk_widget_show (GTK_WIDGET (login_window));
     center_window (login_window, NULL, &main_window_pos);
-    gtk_widget_set_size_request (GTK_WIDGET (login_window), 200, 200);
+    maximise_login_window();
     gtk_widget_queue_resize (GTK_WIDGET (login_window));
     gtk_widget_show (GTK_WIDGET (starfield));
 
