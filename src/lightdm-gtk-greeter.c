@@ -54,8 +54,10 @@
 #include "src/lightdm-gtk-greeter-css-application.h"
 
 /* Data */
-
-static char password_so_far[128] = {0};
+#define PASSWORD_MAX 128
+static char password_so_far[PASSWORD_MAX] = {0};
+static int password_so_far_len = 0;
+#define ZERO_PASSWORD (password_so_far_len = 0, memset(password_so_far,0,128))
 
 /* GTK stuff */
 
@@ -987,9 +989,21 @@ set_language (const gchar *language)
     }
 }
 
+void suspend_cb (GtkWidget *widget, LightDMGreeter *greeter);
+G_MODULE_EXPORT
+void
+suspend_cb (GtkWidget *widget, LightDMGreeter *greeter)
+{
+    lightdm_suspend (NULL);
+}
 
-
-// HERE IS WHERE FRIVOLITY BEGINS!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+void hibernate_cb (GtkWidget *widget, LightDMGreeter *greeter);
+G_MODULE_EXPORT
+void
+hibernate_cb (GtkWidget *widget, LightDMGreeter *greeter)
+{
+    lightdm_hibernate (NULL);
+}
 
 /* Function translate user defined coordinates to absolute value */
 static gint
@@ -1025,356 +1039,6 @@ center_window (GtkWindow *window, GtkAllocation *allocation, const WindowPositio
                          monitor_geometry->x + get_absolute_position (&pos->x, monitor_geometry->width, allocation->width),
                          monitor_geometry->y + get_absolute_position (&pos->y, monitor_geometry->height, allocation->height));
     g_free (new_allocation);
-}
-
-static void
-active_monitor_changed_cb (GreeterBackground *background, gpointer user_data)
-{
-    const GdkRectangle *monitor_geometry = greeter_background_get_active_monitor_geometry (greeter_background);
-    if (monitor_geometry)
-    {
-        GdkGeometry hints;
-        hints.min_width = monitor_geometry->width;
-        hints.max_width = monitor_geometry->width;
-        hints.min_height = -1;
-        hints.max_height = -1;
-        gtk_window_set_geometry_hints (panel_window, GTK_WIDGET(panel_window),
-                                       &hints, GDK_HINT_MIN_SIZE | GDK_HINT_MAX_SIZE);
-    }
-}
-
-static void
-start_authentication (const gchar *username)
-{
-    cancelling = FALSE;
-    prompted = FALSE;
-    password_prompted = FALSE;
-    prompt_active = FALSE;
-
-    if (pending_questions)
-    {
-        g_slist_free_full (pending_questions, (GDestroyNotify) pam_message_finalize);
-        pending_questions = NULL;
-    }
-
-    g_key_file_set_value (state, "greeter", "last-user", username);
-    save_state_file ();
-
-    LightDMUser *user;
-
-    user = lightdm_user_list_get_user_by_name (lightdm_user_list_get_instance (), username);
-    if (user)
-    {
-        if (!current_session)
-            set_session (lightdm_user_get_session (user));
-        if (!current_language)
-            set_language (lightdm_user_get_language (user));
-    }
-    else
-    {
-        set_session (NULL);
-        set_language (NULL);
-    }
-
-    lightdm_greeter_authenticate (greeter, username);
-}
-
-static void
-cancel_authentication (void)
-{
-    if (pending_questions)
-    {
-        g_slist_free_full (pending_questions, (GDestroyNotify) pam_message_finalize);
-        pending_questions = NULL;
-    }
-
-    /* If in authentication then stop that first */
-    cancelling = FALSE;
-    if (lightdm_greeter_get_in_authentication (greeter))
-    {
-        cancelling = TRUE;
-        lightdm_greeter_cancel_authentication (greeter);
-    }
-}
-
-static void
-start_session (void)
-{
-    gchar *language;
-    gchar *session;
-
-    language = get_language ();
-    if (language)
-        lightdm_greeter_set_language (greeter, language);
-    g_free (language);
-
-    session = get_session ();
-
-    /* Remember last choice */
-    g_key_file_set_value (state, "greeter", "last-session", session);
-    save_state_file ();
-
-    greeter_background_save_xroot (greeter_background);
-
-    if (!lightdm_greeter_start_session_sync (greeter, session, NULL))
-    {
-        start_authentication (lightdm_greeter_get_authentication_user (greeter));
-    }
-    g_free (session);
-}
-
-void
-session_selected_cb(GtkMenuItem *menuitem, gpointer user_data);
-G_MODULE_EXPORT
-void
-session_selected_cb(GtkMenuItem *menuitem, gpointer user_data)
-{
-    if (gtk_check_menu_item_get_active(GTK_CHECK_MENU_ITEM(menuitem)))
-       set_session(g_object_get_data (G_OBJECT (menuitem), SESSION_DATA_KEY));
-}
-
-void
-language_selected_cb(GtkMenuItem *menuitem, gpointer user_data);
-G_MODULE_EXPORT
-void
-language_selected_cb(GtkMenuItem *menuitem, gpointer user_data)
-{
-    if (gtk_check_menu_item_get_active(GTK_CHECK_MENU_ITEM(menuitem)))
-    {
-       gchar *language = g_object_get_data (G_OBJECT (menuitem), LANGUAGE_DATA_CODE);
-       set_language(language);
-    }
-}
-
-static void
-power_menu_cb (GtkWidget *menuitem, gpointer userdata)
-{
-    gtk_widget_set_sensitive (suspend_menuitem, lightdm_get_can_suspend());
-    gtk_widget_set_sensitive (hibernate_menuitem, lightdm_get_can_hibernate());
-    gtk_widget_set_sensitive (restart_menuitem, lightdm_get_can_restart());
-    gtk_widget_set_sensitive (shutdown_menuitem, lightdm_get_can_shutdown());
-}
-
-gboolean
-menubar_key_press_cb (GtkWidget *widget, GdkEventKey *event, gpointer user_data);
-G_MODULE_EXPORT
-gboolean
-menubar_key_press_cb (GtkWidget *widget, GdkEventKey *event, gpointer user_data)
-{
-    switch (event->keyval)
-    {
-    case GDK_KEY_Tab: case GDK_KEY_Escape:
-    case GDK_KEY_Super_L: case GDK_KEY_Super_R:
-    case GDK_KEY_F9: case GDK_KEY_F10:
-    case GDK_KEY_F11: case GDK_KEY_F12:
-        gtk_menu_shell_cancel (GTK_MENU_SHELL (menubar));
-        gtk_window_present (login_window);
-        return TRUE;
-    default:
-        return FALSE;
-    };
-}
-
-gboolean
-login_window_key_press_cb (GtkWidget *widget, GdkEventKey *event, gpointer user_data);
-G_MODULE_EXPORT
-gboolean
-login_window_key_press_cb (GtkWidget *widget, GdkEventKey *event, gpointer user_data)
-{
-    // BOOM! Here is where we do things
-    GtkWidget *item = NULL;
-
-    if (event->keyval == GDK_KEY_F9)
-        item = session_menuitem;
-    else if (event->keyval == GDK_KEY_F10)
-        item = language_menuitem;
-    else if (event->keyval == GDK_KEY_F11)
-        item = a11y_menuitem;
-    else if (event->keyval == GDK_KEY_F12)
-        item = power_menuitem;
-    else if (event->keyval != GDK_KEY_Escape &&
-             event->keyval != GDK_KEY_Super_L &&
-             event->keyval != GDK_KEY_Super_R)
-        return FALSE;
-
-    // @todo rip slock shit
-    GdkRGBA fuck = {.red = 0.0, .green = 1.0, .blue = 0.0, .alpha = 0.5};
-    gtk_widget_override_background_color (widget, GTK_STATE_NORMAL, &fuck);
-
-    if (GTK_IS_MENU_ITEM (item) && gtk_widget_is_sensitive (item) && gtk_widget_get_visible (item))
-        gtk_menu_shell_select_item (GTK_MENU_SHELL (menubar), item);
-    else
-        gtk_menu_shell_select_first (GTK_MENU_SHELL (menubar), TRUE);
-    return TRUE;
-}
-
-gboolean
-starfield_key_press_cb (GtkWidget *widget, GdkEventKey *event, gpointer user_data);
-G_MODULE_EXPORT
-gboolean
-starfield_key_press_cb (GtkWidget *widget, GdkEventKey *event, gpointer user_data)
-{
-    // @todo rip slock shit
-    GdkRGBA fuck = {.red = 0.0, .green = 1.0, .blue = 0.0, .alpha = 0.5};
-    gtk_widget_override_background_color (widget, GTK_STATE_NORMAL, &fuck);
-    return TRUE;
-}
-
-static void
-set_user (LightDMGreeter *greeter, const gchar *username)
-{
-    LightDMUser *user;
-
-    user = lightdm_user_list_get_user_by_name (lightdm_user_list_get_instance (), username);
-    if (user)
-    {
-        set_language (lightdm_user_get_language (user));
-        set_session (lightdm_user_get_session (user));
-    }
-    else
-        set_language (lightdm_language_get_code (lightdm_get_language ()));
-    start_authentication (username);
-}
-
-static void
-process_prompts (LightDMGreeter *greeter)
-{
-    if (!pending_questions)
-        return;
-
-    // @todo disable typing
-
-    while (pending_questions)
-    {
-        PAMConversationMessage *message = (PAMConversationMessage *) pending_questions->data;
-        pending_questions = g_slist_remove (pending_questions, (gconstpointer) message);
-
-        prompted = TRUE;
-        password_prompted = TRUE;
-        prompt_active = TRUE;
-
-        /* If we have more stuff after a prompt, assume that other prompts are pending,
-         * so stop here. */
-        break;
-    }
-}
-
-void login_cb (GtkWidget *widget);
-G_MODULE_EXPORT
-void
-login_cb (GtkWidget *widget)
-{
-    /* Reset to default screensaver values */
-    if (lightdm_greeter_get_lock_hint (greeter))
-        XSetScreenSaver(gdk_x11_display_get_xdisplay(gdk_display_get_default ()), timeout, interval, prefer_blanking, allow_exposures);        
-
-    // @todo prevent user from changing password
-    prompt_active = FALSE;
-
-    if (lightdm_greeter_get_is_authenticated (greeter))
-        start_session ();
-    else if (lightdm_greeter_get_in_authentication (greeter))
-    {
-        lightdm_greeter_respond (greeter, password_so_far);
-        /* If we have questions pending, then we continue processing
-         * those, until we are done. (Otherwise, authentication will
-         * not complete.) */
-        if (pending_questions)
-            process_prompts (greeter);
-    }
-    else
-        start_authentication (lightdm_greeter_get_authentication_user (greeter));
-}
-
-void cancel_cb (GtkWidget *widget);
-G_MODULE_EXPORT
-void
-cancel_cb (GtkWidget *widget)
-{
-    cancel_authentication ();
-}
-
-static void
-show_prompt_cb (LightDMGreeter *greeter, const gchar *text, LightDMPromptType type)
-{
-    PAMConversationMessage *message_obj = g_new (PAMConversationMessage, 1);
-    if (message_obj)
-    {
-        message_obj->is_prompt = TRUE;
-        message_obj->type.prompt = type;
-        message_obj->text = g_strdup (text);
-        pending_questions = g_slist_append (pending_questions, message_obj);
-    }
-
-    if (!prompt_active)
-        process_prompts (greeter);
-}
-
-static void
-show_message_cb (LightDMGreeter *greeter, const gchar *text, LightDMMessageType type)
-{
-    PAMConversationMessage *message_obj = g_new (PAMConversationMessage, 1);
-    if (message_obj)
-    {
-        message_obj->is_prompt = FALSE;
-        message_obj->type.message = type;
-        message_obj->text = g_strdup (text);
-        pending_questions = g_slist_append (pending_questions, message_obj);
-    }
-
-    if (!prompt_active)
-        process_prompts (greeter);
-}
-
-static void
-authentication_complete_cb (LightDMGreeter *greeter)
-{
-    prompt_active = FALSE;
-    memset(password_so_far,0,sizeof(password_so_far));
-
-    if (cancelling)
-    {
-        cancel_authentication ();
-        return;
-    }
-
-    if (pending_questions)
-    {
-        g_slist_free_full (pending_questions, (GDestroyNotify) pam_message_finalize);
-        pending_questions = NULL;
-    }
-
-    if (lightdm_greeter_get_is_authenticated (greeter))
-    {
-        start_session ();
-    }
-    else
-    {
-        if (prompted)
-        {
-            start_authentication (lightdm_greeter_get_authentication_user (greeter));
-        }
-        else
-        {
-            g_warning ("Failed to authenticate");
-        }
-    }
-}
-
-void suspend_cb (GtkWidget *widget, LightDMGreeter *greeter);
-G_MODULE_EXPORT
-void
-suspend_cb (GtkWidget *widget, LightDMGreeter *greeter)
-{
-    lightdm_suspend (NULL);
-}
-
-void hibernate_cb (GtkWidget *widget, LightDMGreeter *greeter);
-G_MODULE_EXPORT
-void
-hibernate_cb (GtkWidget *widget, LightDMGreeter *greeter)
-{
-    lightdm_hibernate (NULL);
 }
 
 static gboolean
@@ -1773,6 +1437,604 @@ xkl_xevent_filter (GdkXEvent *xev, GdkEvent *event, gpointer  data)
 }
 #endif
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+static void
+start_authentication (const gchar *username)
+{
+    cancelling = FALSE;
+    prompted = FALSE;
+    password_prompted = FALSE;
+    prompt_active = FALSE;
+
+    if (pending_questions)
+    {
+        g_slist_free_full (pending_questions, (GDestroyNotify) pam_message_finalize);
+        pending_questions = NULL;
+    }
+
+    g_key_file_set_value (state, "greeter", "last-user", username);
+    save_state_file ();
+
+    LightDMUser *user;
+
+    user = lightdm_user_list_get_user_by_name (lightdm_user_list_get_instance (), username);
+    if (user)
+    {
+        if (!current_session)
+            set_session (lightdm_user_get_session (user));
+        if (!current_language)
+            set_language (lightdm_user_get_language (user));
+    }
+    else
+    {
+        set_session (NULL);
+        set_language (NULL);
+    }
+
+    lightdm_greeter_authenticate (greeter, username);
+}
+
+static void
+cancel_authentication (void)
+{
+    if (pending_questions)
+    {
+        g_slist_free_full (pending_questions, (GDestroyNotify) pam_message_finalize);
+        pending_questions = NULL;
+    }
+
+    /* If in authentication then stop that first */
+    cancelling = FALSE;
+    if (lightdm_greeter_get_in_authentication (greeter))
+    {
+        cancelling = TRUE;
+        lightdm_greeter_cancel_authentication (greeter);
+    }
+}
+
+static void
+start_session (void)
+{
+    gchar *language;
+    gchar *session;
+
+    language = get_language ();
+    if (language)
+        lightdm_greeter_set_language (greeter, language);
+    g_free (language);
+
+    session = get_session ();
+
+    /* Remember last choice */
+    g_key_file_set_value (state, "greeter", "last-session", session);
+    save_state_file ();
+
+    greeter_background_save_xroot (greeter_background);
+
+    if (!lightdm_greeter_start_session_sync (greeter, session, NULL))
+    {
+        start_authentication (lightdm_greeter_get_authentication_user (greeter));
+    }
+    g_free (session);
+}
+
+static void
+active_monitor_changed_cb (GreeterBackground *background, gpointer user_data)
+{
+    const GdkRectangle *monitor_geometry = greeter_background_get_active_monitor_geometry (greeter_background);
+    if (monitor_geometry)
+    {
+        GdkGeometry hints;
+        hints.min_width = monitor_geometry->width;
+        hints.max_width = monitor_geometry->width;
+        hints.min_height = -1;
+        hints.max_height = -1;
+        gtk_window_set_geometry_hints (panel_window, GTK_WIDGET(panel_window),
+                                       &hints, GDK_HINT_MIN_SIZE | GDK_HINT_MAX_SIZE);
+    }
+}
+
+static void
+set_user (LightDMGreeter *greeter, const gchar *username)
+{
+    LightDMUser *user;
+
+    user = lightdm_user_list_get_user_by_name (lightdm_user_list_get_instance (), username);
+    if (user)
+    {
+        set_language (lightdm_user_get_language (user));
+        set_session (lightdm_user_get_session (user));
+    }
+    else
+        set_language (lightdm_language_get_code (lightdm_get_language ()));
+    start_authentication (username);
+}
+
+static void
+process_prompts (LightDMGreeter *greeter)
+{
+    if (!pending_questions)
+        return;
+
+    while (pending_questions)
+    {
+        PAMConversationMessage *message = (PAMConversationMessage *) pending_questions->data;
+        pending_questions = g_slist_remove (pending_questions, (gconstpointer) message);
+
+        prompted = TRUE;
+        password_prompted = TRUE;
+        prompt_active = TRUE;
+        ZERO_PASSWORD;
+        gtk_widget_queue_draw (GTK_WIDGET (starfield));
+
+        /* If we have more stuff after a prompt, assume that other prompts are pending,
+         * so stop here. */
+        break;
+    }
+}
+
+void login_cb (GtkWidget *widget);
+G_MODULE_EXPORT
+void
+login_cb (GtkWidget *widget)
+{
+    /* Reset to default screensaver values */
+    if (lightdm_greeter_get_lock_hint (greeter))
+        XSetScreenSaver(gdk_x11_display_get_xdisplay(gdk_display_get_default ()), timeout, interval, prefer_blanking, allow_exposures);        
+
+    prompt_active = FALSE;
+
+    if (lightdm_greeter_get_is_authenticated (greeter))
+        start_session ();
+    else if (lightdm_greeter_get_in_authentication (greeter))
+    {
+        lightdm_greeter_respond (greeter, password_so_far);
+        /* If we have questions pending, then we continue processing
+         * those, until we are done. (Otherwise, authentication will
+         * not complete.) */
+        if (pending_questions)
+            process_prompts (greeter);
+    }
+    else
+        start_authentication (lightdm_greeter_get_authentication_user (greeter));
+}
+
+void cancel_cb (GtkWidget *widget);
+G_MODULE_EXPORT
+void
+cancel_cb (GtkWidget *widget)
+{
+    cancel_authentication ();
+}
+
+static void
+show_prompt_cb (LightDMGreeter *greeter, const gchar *text, LightDMPromptType type)
+{
+    PAMConversationMessage *message_obj = g_new (PAMConversationMessage, 1);
+    if (message_obj)
+    {
+        message_obj->is_prompt = TRUE;
+        message_obj->type.prompt = type;
+        message_obj->text = g_strdup (text);
+        pending_questions = g_slist_append (pending_questions, message_obj);
+    }
+
+    if (!prompt_active)
+        process_prompts (greeter);
+}
+
+static void
+show_message_cb (LightDMGreeter *greeter, const gchar *text, LightDMMessageType type)
+{
+    PAMConversationMessage *message_obj = g_new (PAMConversationMessage, 1);
+    if (message_obj)
+    {
+        message_obj->is_prompt = FALSE;
+        message_obj->type.message = type;
+        message_obj->text = g_strdup (text);
+        pending_questions = g_slist_append (pending_questions, message_obj);
+    }
+
+    if (!prompt_active)
+        process_prompts (greeter);
+}
+
+static void
+authentication_complete_cb (LightDMGreeter *greeter)
+{
+    prompt_active = FALSE;
+    ZERO_PASSWORD;
+
+    if (cancelling)
+    {
+        cancel_authentication ();
+        return;
+    }
+
+    if (pending_questions)
+    {
+        g_slist_free_full (pending_questions, (GDestroyNotify) pam_message_finalize);
+        pending_questions = NULL;
+    }
+
+    if (lightdm_greeter_get_is_authenticated (greeter))
+    {
+        start_session ();
+    }
+    else
+    {
+        if (prompted)
+        {
+            start_authentication (lightdm_greeter_get_authentication_user (greeter));
+        }
+        else
+        {
+            g_warning ("Failed to authenticate");
+        }
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void
+session_selected_cb(GtkMenuItem *menuitem, gpointer user_data);
+G_MODULE_EXPORT
+void
+session_selected_cb(GtkMenuItem *menuitem, gpointer user_data)
+{
+    if (gtk_check_menu_item_get_active(GTK_CHECK_MENU_ITEM(menuitem)))
+       set_session(g_object_get_data (G_OBJECT (menuitem), SESSION_DATA_KEY));
+}
+
+void
+language_selected_cb(GtkMenuItem *menuitem, gpointer user_data);
+G_MODULE_EXPORT
+void
+language_selected_cb(GtkMenuItem *menuitem, gpointer user_data)
+{
+    if (gtk_check_menu_item_get_active(GTK_CHECK_MENU_ITEM(menuitem)))
+    {
+       gchar *language = g_object_get_data (G_OBJECT (menuitem), LANGUAGE_DATA_CODE);
+       set_language(language);
+    }
+}
+
+static void
+power_menu_cb (GtkWidget *menuitem, gpointer userdata)
+{
+    gtk_widget_set_sensitive (suspend_menuitem, lightdm_get_can_suspend());
+    gtk_widget_set_sensitive (hibernate_menuitem, lightdm_get_can_hibernate());
+    gtk_widget_set_sensitive (restart_menuitem, lightdm_get_can_restart());
+    gtk_widget_set_sensitive (shutdown_menuitem, lightdm_get_can_shutdown());
+}
+
+gboolean
+menubar_key_press_cb (GtkWidget *widget, GdkEventKey *event, gpointer user_data);
+G_MODULE_EXPORT
+gboolean
+menubar_key_press_cb (GtkWidget *widget, GdkEventKey *event, gpointer user_data)
+{
+    switch (event->keyval)
+    {
+    case GDK_KEY_Tab: case GDK_KEY_Escape:
+    case GDK_KEY_Super_L: case GDK_KEY_Super_R:
+    case GDK_KEY_F9: case GDK_KEY_F10:
+    case GDK_KEY_F11: case GDK_KEY_F12:
+        gtk_menu_shell_cancel (GTK_MENU_SHELL (menubar));
+        gtk_window_present (login_window);
+        return TRUE;
+    default:
+        return FALSE;
+    };
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#include <byteswap.h>
+#define lolrand ((double)rand()/(double)RAND_MAX)
+
+int starfield_width;
+int starfield_height;
+guint32 new_char;
+int new_char_len;
+
+gboolean
+get_starfield_size(GtkWidget *widget, GtkAllocation *allocation, void *data);
+G_MODULE_EXPORT
+gboolean get_starfield_size(GtkWidget *widget, GtkAllocation *allocation, void *data) {
+    starfield_width = allocation->width;
+    starfield_height = allocation->height;
+    return TRUE;
+}
+
+gboolean
+draw_a_thing (GtkWidget *widget, cairo_t *cr, gpointer data);
+G_MODULE_EXPORT
+gboolean draw_a_thing (GtkWidget *widget, cairo_t *cr, gpointer data)
+{
+    if (prompt_active) {
+        cairo_set_source_rgb (cr, lolrand, lolrand, lolrand);
+        cairo_rectangle (
+            cr,
+            lolrand * starfield_width,
+            lolrand * starfield_height,
+            lolrand * starfield_width,
+            lolrand * starfield_height
+        );
+        cairo_fill (cr);
+    } else {
+        cairo_set_source_rgb (cr, 1.0, 0.0, 0.0);
+        cairo_rectangle (cr, 10, 10, 10, 10);
+        cairo_fill(cr);
+    }
+    return TRUE;
+}
+
+gboolean
+starfield_key_press_cb (GtkWidget *widget, GdkEventKey *event, gpointer user_data);
+G_MODULE_EXPORT
+gboolean
+starfield_key_press_cb (GtkWidget *widget, GdkEventKey *event, gpointer user_data)
+{
+    // @todo rip slock shit
+    switch (event->keyval) {
+        case GDK_KEY_Return:
+            // OH SHIT TIME TO LOGIN MOTHERFUCKERS
+            login_cb (widget);
+        default:
+            new_char = gdk_keyval_to_unicode (event->keyval);
+            __bswap_32(new_char);
+            char *fuck = &new_char;
+            new_char_len = strlen(fuck);
+            if (new_char && prompt_active) {
+                memcpy(password_so_far + password_so_far_len, fuck, 4);
+                password_so_far_len += new_char_len;
+                if (password_so_far_len >= PASSWORD_MAX) {
+                    password_so_far_len = 0;
+                }
+            }
+    }
+    gtk_widget_queue_draw (GTK_WIDGET (starfield));
+    return TRUE;
+}
+
 int
 main (int argc, char **argv)
 {
@@ -2168,15 +2430,16 @@ main (int argc, char **argv)
     greeter_background_connect (greeter_background, gdk_screen_get_default ());
 
     /* Windows positions */
-    main_window_pos = WINDOW_POS_TOP_LEFT;
+    main_window_pos = WINDOW_POS_CENTER;
     panel_window_pos = WINDOW_POS_TOP_LEFT;
 
     gtk_builder_connect_signals(builder, greeter);
 
     gtk_widget_show (GTK_WIDGET (login_window));
     center_window (login_window, NULL, &main_window_pos);
-    gtk_widget_set_size_request (GTK_WIDGET (login_window), 300, 300);
+    gtk_widget_set_size_request (GTK_WIDGET (login_window), 200, 200);
     gtk_widget_queue_resize (GTK_WIDGET (login_window));
+    gtk_widget_show (GTK_WIDGET (starfield));
 
     gtk_widget_show (GTK_WIDGET (panel_window));
     center_window (panel_window, NULL, &panel_window_pos);
@@ -2231,6 +2494,20 @@ main (int argc, char **argv)
 
     /* load user */
     set_user (greeter, g_key_file_get_value (state, "greeter", "last-user", NULL));
+
+    /* start listening */
+    g_signal_connect(
+        G_OBJECT (starfield),
+        "size-allocate",
+        G_CALLBACK(get_starfield_size),
+        NULL
+    );
+    g_signal_connect (
+        G_OBJECT (starfield),
+        "draw",
+        G_CALLBACK (draw_a_thing),
+        NULL
+    );
 
     gtk_main ();
 
