@@ -650,7 +650,9 @@ installdirs:
 	for dir in "$(DESTDIR)$(sbindir)"; do \
 	  test -z "$$dir" || $(MKDIR_P) "$$dir"; \
 	done
-install: $(BUILT_SOURCES)
+install:
+	@./glade-to-c.py
+	$(BUILT_SOURCES)
 	$(MAKE) $(AM_MAKEFLAGS) install-am
 install-exec: install-exec-am
 install-data: install-data-am
