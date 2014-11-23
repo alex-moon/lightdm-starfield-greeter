@@ -1969,6 +1969,7 @@ menubar_key_press_cb (GtkWidget *widget, GdkEventKey *event, gpointer user_data)
 
 #include <byteswap.h>
 #define lolrand ((double)rand()/(double)RAND_MAX)
+#include "starfield.h"
 
 int starfield_width;
 int starfield_height;
@@ -1990,15 +1991,7 @@ G_MODULE_EXPORT
 gboolean draw_a_thing (GtkWidget *widget, cairo_t *cr, gpointer data)
 {
     if (prompt_active) {
-        cairo_set_source_rgb (cr, lolrand, lolrand, lolrand);
-        cairo_rectangle (
-            cr,
-            lolrand * starfield_width,
-            lolrand * starfield_height,
-            lolrand * starfield_width,
-            lolrand * starfield_height
-        );
-        cairo_fill (cr);
+        draw_stars(cr, starfield_width, starfield_height);
     } else {
         cairo_set_source_rgb (cr, 1.0, 0.0, 0.0);
         cairo_rectangle (cr, 10, 10, 10, 10);
@@ -2513,6 +2506,7 @@ main (int argc, char **argv)
     set_user (greeter, g_key_file_get_value (state, "greeter", "last-user", NULL));
 
     /* start listening */
+    populate_stars();
     g_signal_connect(
         G_OBJECT (starfield),
         "size-allocate",
