@@ -1982,7 +1982,7 @@ static void *star_thread(void *arg) {
     while (1) {
         move_stars();
         gtk_widget_queue_draw (GTK_WIDGET (starfield));
-        usleep (20000);
+        usleep (50000);
     }
     return NULL;
 }

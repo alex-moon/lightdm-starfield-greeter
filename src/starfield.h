@@ -10,7 +10,7 @@ int move_mode = DRIFTING;
 
 #define DRIFT_SPEED -0.001
 #define CRUISE_SPEED 0.005
-#define ZOOM_SPEED 0.01
+#define ZOOM_SPEED 0.04
 
 typedef struct {
     // 0 <= x,y,z <= 1 - absolute values used to calculate relative position on screen, brightness, etc.
@@ -45,11 +45,11 @@ Star new_star(void) {
 }
 
 double star_x (Star *star, int width) {
-    return (star->x - 0.5) * width * star->z + width * 0.5;
+    return (star->x - 0.5) * width * star->z * star->z + width * 0.5;
 }
 
 double star_y (Star *star, int height) {
-    return (star->y - 0.5) * height * star->z + height * 0.5;
+    return (star->y - 0.5) * height * star->z * star->z + height * 0.5;
 }
 
 double star_brightness (Star *star) {
@@ -111,8 +111,8 @@ void move_stars(void) {
 // define your starfield colours here lol
 #define STAR_RED 1.0
 #define STAR_GREEN 1.0
-#define STAR_BLUE 0.8
-#define STARFIELD_BG_RGBA {0.0, 0.05, 0.1, 0.5}
+#define STAR_BLUE 1.0
+#define STARFIELD_BG_RGBA {0.0, 0.0, 0.0, 0.0}
 
 static void draw_star(cairo_t *cr, Star *star, int width, int height) {
     cairo_set_source_rgba (cr, STAR_RED, STAR_GREEN, STAR_BLUE, star_brightness(star));
