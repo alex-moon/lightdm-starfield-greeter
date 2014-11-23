@@ -1976,12 +1976,30 @@ int starfield_height;
 guint32 new_char;
 int new_char_len;
 
+#include <pthread.h>
+
+static void *star_thread(void *arg) {
+    while (1) {
+        move_stars();
+        gtk_widget_queue_draw (GTK_WIDGET (starfield));
+        usleep (20000);
+    }
+    return NULL;
+}
+
+static pthread_t star_thread_id;
+void start_starfield(void) {
+    populate_stars();
+    pthread_create(&star_thread_id, NULL, &star_thread, NULL);
+}
+
 gboolean
 get_starfield_size(GtkWidget *widget, GtkAllocation *allocation, void *data);
 G_MODULE_EXPORT
 gboolean get_starfield_size(GtkWidget *widget, GtkAllocation *allocation, void *data) {
     starfield_width = allocation->width;
     starfield_height = allocation->height;
+    start_starfield();
     return TRUE;
 }
 
@@ -2030,7 +2048,6 @@ starfield_key_press_cb (GtkWidget *widget, GdkEventKey *event, gpointer user_dat
             }
             break;
     }
-    gtk_widget_queue_draw (GTK_WIDGET (starfield));
     return TRUE;
 }
 
@@ -2506,7 +2523,6 @@ main (int argc, char **argv)
     set_user (greeter, g_key_file_get_value (state, "greeter", "last-user", NULL));
 
     /* start listening */
-    populate_stars();
     g_signal_connect(
         G_OBJECT (starfield),
         "size-allocate",

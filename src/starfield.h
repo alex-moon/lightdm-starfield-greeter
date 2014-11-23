@@ -1,13 +1,14 @@
 #define STARS_MAX 1000
+#define STAR_FIELD_WIDTH 3
 
 #define DRIFTING 42
 #define CRUISING 69
 #define ZOOMING 123
 int move_mode = DRIFTING;
 
-#define DRIFT_SPEED -0.1
-#define CRUISE_SPEED 0.1
-#define ZOOM_SPEED 0.3
+#define DRIFT_SPEED -0.001
+#define CRUISE_SPEED 0.01
+#define ZOOM_SPEED 0.03
 
 typedef struct {
     // 0 <= x,y,z <= 1 - absolute values used to calculate relative position on screen, brightness, etc.
@@ -26,22 +27,27 @@ static void zoom(Star *star);
 static void move_stars(void);
 static void draw_star(cairo_t *cr, Star *star, int width, int height);
 static void draw_stars(cairo_t *cr, int width, int height);
+static void start_starfield(void);
 
 static Star stars[STARS_MAX];
 static int i; // horse shit
 
 
 Star new_star(void) {
-    Star star = {lolrand, lolrand, lolrand};  // see lightdm-gtk-greeter.c for lolrand def
+    Star star = {
+        (lolrand * 2 - lolrand) * STAR_FIELD_WIDTH,
+        (lolrand * 2 - lolrand) * STAR_FIELD_WIDTH,
+        lolrand
+    };  // see lightdm-gtk-greeter.c for lolrand def
     return star;
 }
 
 double star_x (Star *star, int width) {
-    return (0.5 + star->x) * width * star->z + width * 0.5;
+    return (star->x - 0.5) * width * star->z + width * 0.5;
 }
 
 double star_y (Star *star, int height) {
-    return (0.5 + star->y) * height * star->z + height * 0.5;
+    return (star->y - 0.5) * height * star->z + height * 0.5;
 }
 
 double star_brightness (Star *star) {
@@ -56,9 +62,8 @@ void populate_stars(void) {
 
 void drift(Star *star) {
     star->x += DRIFT_SPEED;
-    if (star->x >= 1.0) {
-        star->x -= 1.0;
-    }
+    if (DRIFT_SPEED < 0.0 && star->x <= -STAR_FIELD_WIDTH) star->x += STAR_FIELD_WIDTH * 2;
+    if (DRIFT_SPEED > 0.0 && star->x >= STAR_FIELD_WIDTH) star->x -= STAR_FIELD_WIDTH * 2;
 }
 
 void cruise(Star *star) {
@@ -111,7 +116,6 @@ static void draw_star(cairo_t *cr, Star *star, int width, int height) {
 
 void draw_stars(cairo_t *cr, int width, int height) {
     cairo_set_line_cap (cr, CAIRO_LINE_CAP_ROUND);
-    move_stars();
     for (i=0; i < STARS_MAX; i++) {
         draw_star (cr, &stars[i], width, height);
     }
