@@ -1,4 +1,6 @@
-#define STARS_MAX 1000
+#include <math.h>
+
+#define STARS_MAX 5000
 #define STAR_FIELD_WIDTH 3
 
 #define DRIFTING 42
@@ -51,7 +53,11 @@ double star_y (Star *star, int height) {
 }
 
 double star_brightness (Star *star) {
-    return star->z; // @todo might make more sense to do a logarithmic relation?
+    // return star->z;  // works just as well but a bit faint
+    return 1.0 - (
+        (1 - star->z) *
+        (1 - star->z)
+    );
 }
 
 void populate_stars(void) {
@@ -102,10 +108,11 @@ void move_stars(void) {
     }
 }
 
-// define your star colour here lol
+// define your starfield colours here lol
 #define STAR_RED 1.0
 #define STAR_GREEN 1.0
 #define STAR_BLUE 1.0
+#define STARFIELD_BG_RGBA {0.5, 0.0, 0.0, 0.5}
 
 static void draw_star(cairo_t *cr, Star *star, int width, int height) {
     cairo_set_source_rgba (cr, STAR_RED, STAR_GREEN, STAR_BLUE, star_brightness(star));

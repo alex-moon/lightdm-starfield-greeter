@@ -2523,6 +2523,8 @@ main (int argc, char **argv)
     set_user (greeter, g_key_file_get_value (state, "greeter", "last-user", NULL));
 
     /* start listening */
+    const GdkRGBA starfield_bg = STARFIELD_BG_RGBA;
+    gtk_widget_override_background_color (GTK_WIDGET (login_window), GTK_STATE_FLAG_NORMAL, &starfield_bg);
     g_signal_connect(
         G_OBJECT (starfield),
         "size-allocate",
