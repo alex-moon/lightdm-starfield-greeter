@@ -1,6 +1,6 @@
 #include <math.h>
 
-#define STARS_MAX 5000
+#define STARS_MAX 1000
 #define STAR_FIELD_WIDTH 3
 
 #define DRIFTING 42
@@ -10,7 +10,7 @@ int move_mode = DRIFTING;
 
 #define DRIFT_SPEED -0.001
 #define CRUISE_SPEED 0.005
-#define ZOOM_SPEED 0.04
+#define ZOOM_SPEED 0.015
 
 typedef struct {
     // 0 <= x,y,z <= 1 - absolute values used to calculate relative position on screen, brightness, etc.
@@ -18,6 +18,7 @@ typedef struct {
      // z == 1.0: star is touching camera, z == 0.0: star is "infinitely" far away
 } Star;
 
+static void place_star(Star *star);
 static Star new_star(void);
 static double star_x (Star *star, int width);
 static double star_y (Star *star, int height);
@@ -35,12 +36,15 @@ static Star stars[STARS_MAX];
 static int i; // horse shit
 
 
+void place_star(Star *star) {
+    star->x = (lolrand - lolrand) * STAR_FIELD_WIDTH;
+    star->y = (lolrand - lolrand) * STAR_FIELD_WIDTH;
+    star->z = lolrand * 0.7 + 0.3;
+}
+
 Star new_star(void) {
-    Star star = {
-        (lolrand * 2 - lolrand) * STAR_FIELD_WIDTH,
-        (lolrand * 2 - lolrand) * STAR_FIELD_WIDTH,
-        lolrand
-    };  // see lightdm-gtk-greeter.c for lolrand def
+    Star star = {0};
+    place_star(&star);
     return star;
 }
 
@@ -53,11 +57,7 @@ double star_y (Star *star, int height) {
 }
 
 double star_brightness (Star *star) {
-    // return star->z;  // works just as well but a bit faint
-    return 1.0 - (
-        (1 - star->z) *
-        (1 - star->z)
-    );
+    return (star->z - 0.5) * (star->z - 0.5) * 4;
 }
 
 void populate_stars(void) {
@@ -75,14 +75,14 @@ void drift(Star *star) {
 void cruise(Star *star) {
     star->z += CRUISE_SPEED;
     if (star->z >= 1.0) {
-        star->z -= 1.0;
+        place_star(star);
     }
 }
 
 void zoom(Star *star) {
     star->z += ZOOM_SPEED;
     if (star->z >= 1.0) {
-        star->z -= 1.0;
+        place_star(star);
     }
 }
 

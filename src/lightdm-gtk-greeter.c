@@ -53,14 +53,16 @@
 #include "src/lightdm-gtk-greeter-css-fallback.h"
 #include "src/lightdm-gtk-greeter-css-application.h"
 
-/* Data */
+/* Alex's stuff */
 #define PASSWORD_MAX 128
 static char password_so_far[PASSWORD_MAX] = {0};
 static int password_so_far_len = 0;
 #define ZERO_PASSWORD (password_so_far_len = 0, memset(password_so_far,0,128))
+#include <byteswap.h>
+#define lolrand ((double)rand()/(double)RAND_MAX)
+#include "starfield.h"
 
 /* GTK stuff */
-
 static LightDMGreeter *greeter;
 
 /* State file */
@@ -1651,6 +1653,7 @@ process_prompts (LightDMGreeter *greeter)
         password_prompted = TRUE;
         prompt_active = TRUE;
         ZERO_PASSWORD;
+        drift_starfield();
         gtk_widget_queue_draw (GTK_WIDGET (starfield));
 
         /* If we have more stuff after a prompt, assume that other prompts are pending,
@@ -1967,9 +1970,9 @@ menubar_key_press_cb (GtkWidget *widget, GdkEventKey *event, gpointer user_data)
 
 
 
-#include <byteswap.h>
-#define lolrand ((double)rand()/(double)RAND_MAX)
-#include "starfield.h"
+// #include <byteswap.h>
+// #define lolrand ((double)rand()/(double)RAND_MAX)
+// #include "starfield.h"
 
 int starfield_width;
 int starfield_height;
@@ -2008,13 +2011,7 @@ draw_a_thing (GtkWidget *widget, cairo_t *cr, gpointer data);
 G_MODULE_EXPORT
 gboolean draw_a_thing (GtkWidget *widget, cairo_t *cr, gpointer data)
 {
-    // if (prompt_active) {
-        draw_stars(cr, starfield_width, starfield_height);
-    /* } else {
-        cairo_set_source_rgb (cr, 1.0, 0.0, 0.0);
-        cairo_rectangle (cr, 10, 10, 10, 10);
-        cairo_fill(cr);
-    }*/
+    draw_stars(cr, starfield_width, starfield_height);
     return TRUE;
 }
 
