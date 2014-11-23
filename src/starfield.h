@@ -9,8 +9,8 @@
 int move_mode = DRIFTING;
 
 #define DRIFT_SPEED -0.001
-#define CRUISE_SPEED 0.01
-#define ZOOM_SPEED 0.03
+#define CRUISE_SPEED 0.005
+#define ZOOM_SPEED 0.01
 
 typedef struct {
     // 0 <= x,y,z <= 1 - absolute values used to calculate relative position on screen, brightness, etc.
@@ -126,4 +126,19 @@ void draw_stars(cairo_t *cr, int width, int height) {
     for (i=0; i < STARS_MAX; i++) {
         draw_star (cr, &stars[i], width, height);
     }
+}
+
+static void drift_starfield(void);
+void drift_starfield(void) {
+    move_mode = DRIFTING;
+}
+
+static void cruise_starfield(void);
+void cruise_starfield(void) {
+    move_mode = CRUISING;
+}
+
+static void zoom_starfield(void);
+void zoom_starfield(void) {
+    move_mode = ZOOMING;
 }

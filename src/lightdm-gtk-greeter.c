@@ -2008,13 +2008,13 @@ draw_a_thing (GtkWidget *widget, cairo_t *cr, gpointer data);
 G_MODULE_EXPORT
 gboolean draw_a_thing (GtkWidget *widget, cairo_t *cr, gpointer data)
 {
-    if (prompt_active) {
+    // if (prompt_active) {
         draw_stars(cr, starfield_width, starfield_height);
-    } else {
+    /* } else {
         cairo_set_source_rgb (cr, 1.0, 0.0, 0.0);
         cairo_rectangle (cr, 10, 10, 10, 10);
         cairo_fill(cr);
-    }
+    }*/
     return TRUE;
 }
 
@@ -2027,13 +2027,15 @@ starfield_key_press_cb (GtkWidget *widget, GdkEventKey *event, gpointer user_dat
     // @todo rip slock shit
     switch (event->keyval) {
         case GDK_KEY_Return:
-            // OH SHIT TIME TO LOGIN MOTHERFUCKERS
+            zoom_starfield();
             login_cb (widget);
             break;
         case GDK_KEY_BackSpace:
+            drift_starfield();
             ZERO_PASSWORD;
             break;
         default:
+            cruise_starfield();
             new_char = gdk_keyval_to_unicode (event->keyval);
             __bswap_32(new_char);
             char *fuck = (char *) &new_char;
@@ -2522,9 +2524,11 @@ main (int argc, char **argv)
     /* load user */
     set_user (greeter, g_key_file_get_value (state, "greeter", "last-user", NULL));
 
-    /* start listening */
+    /* set starfield background colour */
     const GdkRGBA starfield_bg = STARFIELD_BG_RGBA;
     gtk_widget_override_background_color (GTK_WIDGET (login_window), GTK_STATE_FLAG_NORMAL, &starfield_bg);
+
+    /* start listening */
     g_signal_connect(
         G_OBJECT (starfield),
         "size-allocate",
