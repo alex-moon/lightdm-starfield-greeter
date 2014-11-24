@@ -150,8 +150,8 @@ void move_stars(void) {
 // define your starfield colours here lol
 #define STAR_RED 1.0
 #define STAR_GREEN 1.0
-#define STAR_BLUE 1.0
-#define STARFIELD_BG_RGBA {0.0, 0.0, 0.0, 0.0}
+#define STAR_BLUE 0.8
+#define STARFIELD_BG_RGBA {0.01, 0.0, 0.1, 0.5}
 
 static void draw_star(cairo_t *cr, Star *star, int width, int height) {
     if (

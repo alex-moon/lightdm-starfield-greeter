@@ -103,7 +103,7 @@ typedef struct
 /* Function translate user defined coordinates to absolute value */
 static gint get_absolute_position (const DimensionPosition *p, gint screen, gint window);
 
-static const WindowPosition WINDOW_POS_CENTER   = {.x = { 50, +1, TRUE,   0}, .y = { 50, +1, TRUE,   0}};
+static const WindowPosition WINDOW_POS_CENTER   = {.x = { 50, +1, TRUE,   0}, .y = { 52, +1, TRUE,   0}};
 static const WindowPosition WINDOW_POS_TOP_LEFT = {.x = {  0, +1, FALSE, -1}, .y = {  0, +1, FALSE, -1}};
 static const WindowPosition ONBOARD_WINDOW_POS  = {.x = { 50, +1, TRUE,   0}, .y = {  0, -1, FALSE, +1}};
 static const WindowPosition ONBOARD_WINDOW_SIZE = {.x = {610,  0, FALSE,  0}, .y = {210,  0, FALSE,  0}};
@@ -2058,7 +2058,7 @@ maximise_login_window(void)
                                      /* must be replaced with background->active_monitor */
                                      gdk_screen_get_primary_monitor (gdk_screen_get_default ()),
                                      &screen);
-    gtk_widget_set_size_request (GTK_WIDGET (login_window), screen.width, screen.height - 100);
+    gtk_widget_set_size_request (GTK_WIDGET (login_window), screen.width, screen.height - 40);
 }
 
 int
