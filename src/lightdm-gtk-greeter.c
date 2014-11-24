@@ -2053,12 +2053,20 @@ starfield_key_press_cb (GtkWidget *widget, GdkEventKey *event, gpointer user_dat
 static void
 maximise_login_window(void)
 {
-    GdkRectangle screen;
-    gdk_screen_get_monitor_geometry (gdk_screen_get_default (),
-                                     /* must be replaced with background->active_monitor */
-                                     gdk_screen_get_primary_monitor (gdk_screen_get_default ()),
-                                     &screen);
-    gtk_widget_set_size_request (GTK_WIDGET (login_window), screen.width, screen.height - 40);
+    const GdkRectangle *screen_geo = greeter_background_get_active_monitor_geometry (greeter_background);
+    if (!screen_geo) {
+        GdkRectangle screen;
+        gdk_screen_get_monitor_geometry (
+            gdk_screen_get_default (),
+            gdk_screen_get_primary_monitor (gdk_screen_get_default ()),
+            &screen
+        );
+        gtk_window_move (login_window, screen.x, screen.y);
+        gtk_widget_set_size_request (GTK_WIDGET (login_window), screen.width, screen.height - 28);
+    } else {
+        gtk_window_move (login_window, screen_geo->x, screen_geo->y);
+        gtk_widget_set_size_request (GTK_WIDGET (login_window), screen_geo->width, screen_geo->height - 28);
+    }
 }
 
 int
@@ -2462,7 +2470,6 @@ main (int argc, char **argv)
     gtk_builder_connect_signals(builder, greeter);
 
     gtk_widget_show (GTK_WIDGET (login_window));
-    center_window (login_window, NULL, &main_window_pos);
     maximise_login_window();
     gtk_widget_queue_resize (GTK_WIDGET (login_window));
     gtk_widget_show (GTK_WIDGET (starfield));
