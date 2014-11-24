@@ -1,32 +1,77 @@
 #include <math.h>
 
 #define STARS_MAX 1000
-#define STAR_FIELD_WIDTH 3
 
 #define DRIFTING 42
 #define CRUISING 69
 #define ZOOMING 123
 int move_mode = DRIFTING;
 
-#define DRIFT_SPEED -0.001
-#define CRUISE_SPEED 0.005
-#define ZOOM_SPEED 0.015
+#define DRIFT_VELOCITY {-0.001, 0.0, 0.0}
+#define CRUISE_VELOCITY {0.0, 0.0, -0.01}
+#define ZOOM_VELOCITY {0.0, 0.0, -0.02}
 
 typedef struct {
-    // 0 <= x,y,z <= 1 - absolute values used to calculate relative position on screen, brightness, etc.
     double x, y, z;
-     // z == 1.0: star is touching camera, z == 0.0: star is "infinitely" far away
+} Velocity;
+
+Velocity drift_velocity = DRIFT_VELOCITY;
+Velocity cruise_velocity = CRUISE_VELOCITY;
+Velocity zoom_velocity = ZOOM_VELOCITY;
+
+Velocity *move_velocity;
+
+#define ACCELERATION 0.0001
+#define EPSILON 0.0000001
+
+static int double_eq(double a, double b) {
+    return (
+        (a <= b && a + EPSILON > b) ||
+        (a >= b && a - EPSILON < b)
+    );
+}
+
+static void accelerate_toward(Velocity *target) {
+    if (!double_eq(move_velocity->x, target->x)) {
+        if (move_velocity->x < target->x) move_velocity->x += ACCELERATION;
+        else if (move_velocity->x > target->x) move_velocity->x -= ACCELERATION;
+    }
+    if (!double_eq(move_velocity->y, target->y)) {
+        if (move_velocity->y < target->y) move_velocity->x += ACCELERATION;
+        else if (move_velocity->y > target->y) move_velocity->y -= ACCELERATION;
+    }
+    if (!double_eq(move_velocity->z, target->z)) {
+        if (move_velocity->z < target->z) move_velocity->z += ACCELERATION;
+        else if (move_velocity->z > target->z) move_velocity->z -= ACCELERATION;
+    }
+}
+
+static void accelerate(void);
+void accelerate() {
+    switch (move_mode) {
+        case DRIFTING:
+            accelerate_toward(&drift_velocity);
+            break;
+        case CRUISING:
+            accelerate_toward(&cruise_velocity);
+            break;
+        case ZOOMING:
+            accelerate_toward(&zoom_velocity);
+            break;
+    }
+}
+
+typedef struct {
+    double x, y, z;
 } Star;
 
-static void place_star(Star *star);
 static Star new_star(void);
+static double star_px (Star *star);
+static double star_py (Star *star);
 static double star_x (Star *star, int width);
 static double star_y (Star *star, int height);
 static double star_brightness (Star *star);
 static void populate_stars(void);
-static void drift(Star *star);
-static void cruise(Star *star);
-static void zoom(Star *star);
 static void move_stars(void);
 static void draw_star(cairo_t *cr, Star *star, int width, int height);
 static void draw_stars(cairo_t *cr, int width, int height);
@@ -36,75 +81,52 @@ static Star stars[STARS_MAX];
 static int i; // horse shit
 
 
-void place_star(Star *star) {
-    star->x = (lolrand - lolrand) * STAR_FIELD_WIDTH;
-    star->y = (lolrand - lolrand) * STAR_FIELD_WIDTH;
-    star->z = lolrand * 0.7 + 0.3;
-}
-
 Star new_star(void) {
-    Star star = {0};
-    place_star(&star);
+    Star star = {
+        lolrand - 0.5,
+        lolrand - 0.5,
+        lolrand
+    };
     return star;
 }
 
+double star_px (Star *star) {
+    return star->x / star->z;
+}
+
+double star_py (Star *star) {
+    return star->y / star->z;
+}
+
 double star_x (Star *star, int width) {
-    return (star->x - 0.5) * width * star->z * star->z + width * 0.5;
+    return (star_px (star) + 0.5) * width;
 }
 
 double star_y (Star *star, int height) {
-    return (star->y - 0.5) * height * star->z * star->z + height * 0.5;
+    return (star_py (star) + 0.5) * height;
 }
 
 double star_brightness (Star *star) {
-    return (star->z - 0.5) * (star->z - 0.5) * 4;
+    return (1.0 - star->z) * (1.0 - star->z);
 }
 
 void populate_stars(void) {
+    move_velocity = malloc(sizeof(Velocity));
     for (i=0; i < STARS_MAX; i++) {
         stars[i] = new_star();
     }
 }
 
-void drift(Star *star) {
-    star->x += DRIFT_SPEED;
-    if (DRIFT_SPEED < 0.0 && star->x <= -STAR_FIELD_WIDTH) star->x += STAR_FIELD_WIDTH * 2;
-    if (DRIFT_SPEED > 0.0 && star->x >= STAR_FIELD_WIDTH) star->x -= STAR_FIELD_WIDTH * 2;
-}
-
-void cruise(Star *star) {
-    star->z += CRUISE_SPEED;
-    if (star->z >= 1.0) {
-        place_star(star);
-    }
-}
-
-void zoom(Star *star) {
-    star->z += ZOOM_SPEED;
-    if (star->z >= 1.0) {
-        place_star(star);
-    }
-}
-
 void move_stars(void) {
-    switch (move_mode) {
-        case DRIFTING:
-            for (i=0; i < STARS_MAX; i++) {
-                drift(&stars[i]);
-            }
-            break;
-        case CRUISING:
-            for (i=0; i < STARS_MAX; i++) {
-                cruise(&stars[i]);
-            }
-            break;
-        case ZOOMING:
-            for (i=0; i < STARS_MAX; i++) {
-                zoom(&stars[i]);
-            }
-            break;
-        default:
-            break;
+    accelerate();
+    for (i=0; i < STARS_MAX; i++) {
+        stars[i].x += move_velocity->x;
+        if (star_px (&stars[i]) > 0.5 || star_px (&stars[i]) < -0.5) stars[i].x = lolrand - 0.5;
+        stars[i].y += move_velocity->y;
+        if (star_py (&stars[i]) > 0.5 || star_py (&stars[i]) < -0.5) stars[i].y = lolrand - 0.5;
+        stars[i].z += move_velocity->z;
+        if (stars[i].z < 0.0) stars[i].z = 1.0;
+        else if (stars[i].z > 1.0) stars[i].z = 0.0;
     }
 }
 
@@ -115,10 +137,17 @@ void move_stars(void) {
 #define STARFIELD_BG_RGBA {0.0, 0.0, 0.0, 0.0}
 
 static void draw_star(cairo_t *cr, Star *star, int width, int height) {
-    cairo_set_source_rgba (cr, STAR_RED, STAR_GREEN, STAR_BLUE, star_brightness(star));
-    cairo_move_to (cr, star_x (star, width), star_y (star, height));
-    cairo_close_path (cr);
-    cairo_stroke (cr);
+    if (
+        star_px (star) > -0.5 &&
+        star_px (star) < 0.5 &&
+        star_py (star) > -0.5 &&
+        star_py (star) < 0.5
+    ) {
+        cairo_set_source_rgba (cr, STAR_RED, STAR_GREEN, STAR_BLUE, star_brightness(star));
+        cairo_move_to (cr, star_x (star, width), star_y (star, height));
+        cairo_close_path (cr);
+        cairo_stroke (cr);
+    }
 }
 
 void draw_stars(cairo_t *cr, int width, int height) {
