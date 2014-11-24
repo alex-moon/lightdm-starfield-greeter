@@ -1,13 +1,11 @@
-#include <math.h>
-
-#define STARS_MAX 1000
+#define STARS_MAX 5000
 
 #define DRIFTING 42
 #define CRUISING 69
 #define ZOOMING 123
 int move_mode = DRIFTING;
 
-#define DRIFT_VELOCITY {-0.001, 0.0, 0.0}
+#define DRIFT_VELOCITY {-0.0003, 0.0, 0.0}
 #define CRUISE_VELOCITY {0.0, 0.0, -0.01}
 #define ZOOM_VELOCITY {0.0, 0.0, -0.02}
 
@@ -111,7 +109,6 @@ double star_brightness (Star *star) {
 }
 
 void populate_stars(void) {
-    move_velocity = malloc(sizeof(Velocity));
     for (i=0; i < STARS_MAX; i++) {
         stars[i] = new_star();
     }
@@ -121,9 +118,11 @@ void move_stars(void) {
     accelerate();
     for (i=0; i < STARS_MAX; i++) {
         stars[i].x += move_velocity->x;
-        if (star_px (&stars[i]) > 0.5 || star_px (&stars[i]) < -0.5) stars[i].x = lolrand - 0.5;
+        if (stars[i].x > 0.5 || stars[i].x < -0.5) stars[i].x = lolrand - 0.5;
+
         stars[i].y += move_velocity->y;
-        if (star_py (&stars[i]) > 0.5 || star_py (&stars[i]) < -0.5) stars[i].y = lolrand - 0.5;
+        if (stars[i].y > 0.5 || stars[i].y < -0.5) stars[i].y = lolrand - 0.5;
+
         stars[i].z += move_velocity->z;
         if (stars[i].z < 0.0) stars[i].z = 1.0;
         else if (stars[i].z > 1.0) stars[i].z = 0.0;
@@ -170,4 +169,10 @@ void cruise_starfield(void) {
 static void zoom_starfield(void);
 void zoom_starfield(void) {
     move_mode = ZOOMING;
+}
+
+static void starfield_init(void);
+void starfield_init(void) {
+    move_velocity = malloc(sizeof(Velocity));
+    populate_stars();
 }

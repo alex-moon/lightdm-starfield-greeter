@@ -1992,7 +1992,7 @@ static void *star_thread(void *arg) {
 
 static pthread_t star_thread_id;
 void start_starfield(void) {
-    populate_stars();
+    starfield_init();
     pthread_create(&star_thread_id, NULL, &star_thread, NULL);
 }
 
