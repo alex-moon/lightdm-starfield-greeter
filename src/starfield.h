@@ -1,13 +1,13 @@
-#define STARS_MAX 5000
+#define STARS_MAX 1000
 
 #define DRIFTING 42
 #define CRUISING 69
 #define ZOOMING 123
 int move_mode = DRIFTING;
 
-#define DRIFT_VELOCITY {-0.0003, 0.0, 0.0}
-#define CRUISE_VELOCITY {0.0, 0.0, -0.01}
-#define ZOOM_VELOCITY {0.0, 0.0, -0.02}
+#define DRIFT_VELOCITY {-0.001, 0.0, -0.001}
+#define CRUISE_VELOCITY {-0.001, 0.0, 0.001}
+#define ZOOM_VELOCITY {0.0, 0.0, -0.1}
 
 typedef struct {
     double x, y, z;
@@ -35,7 +35,7 @@ static void accelerate_toward(Velocity *target) {
         else if (move_velocity->x > target->x) move_velocity->x -= ACCELERATION;
     }
     if (!double_eq(move_velocity->y, target->y)) {
-        if (move_velocity->y < target->y) move_velocity->x += ACCELERATION;
+        if (move_velocity->y < target->y) move_velocity->y += ACCELERATION;
         else if (move_velocity->y > target->y) move_velocity->y -= ACCELERATION;
     }
     if (!double_eq(move_velocity->z, target->z)) {
@@ -61,13 +61,16 @@ void accelerate() {
 
 typedef struct {
     double x, y, z;
+    double last_x, last_y, last_z;
 } Star;
 
 static Star new_star(void);
 static double star_px (Star *star);
 static double star_py (Star *star);
-static double star_x (Star *star, int width);
-static double star_y (Star *star, int height);
+static double star_plast_x (Star *star);
+static double star_plast_y (Star *star);
+static double screen_x (double px, int width);
+static double screen_y (double py, int height);
 static double star_brightness (Star *star);
 static void populate_stars(void);
 static void move_stars(void);
@@ -80,10 +83,12 @@ static int i; // horse shit
 
 
 Star new_star(void) {
+    double x = lolrand - 0.5;
+    double y = lolrand - 0.5;
+    double z = lolrand;
     Star star = {
-        lolrand - 0.5,
-        lolrand - 0.5,
-        lolrand
+        x, y, z,
+        x, y, z
     };
     return star;
 }
@@ -96,12 +101,20 @@ double star_py (Star *star) {
     return star->y / star->z;
 }
 
-double star_x (Star *star, int width) {
-    return (star_px (star) + 0.5) * width;
+double star_plast_x (Star *star) {
+    return star->last_x / star->last_z;
 }
 
-double star_y (Star *star, int height) {
-    return (star_py (star) + 0.5) * height;
+double star_plast_y (Star *star) {
+    return star->last_y / star->last_z;
+}
+
+double screen_x (double px, int width) {
+    return (px + 0.5) * width;
+}
+
+double screen_y (double py, int height) {
+    return (py + 0.5) * height;
 }
 
 double star_brightness (Star *star) {
@@ -117,15 +130,20 @@ void populate_stars(void) {
 void move_stars(void) {
     accelerate();
     for (i=0; i < STARS_MAX; i++) {
+        stars[i].last_x = stars[i].x;
         stars[i].x += move_velocity->x;
-        if (stars[i].x > 0.5 || stars[i].x < -0.5) stars[i].x = lolrand - 0.5;
+        if (stars[i].x > 0.5 || stars[i].x < -0.5)
+            stars[i].x = stars[i].last_x = lolrand - 0.5;
 
+        stars[i].last_y = stars[i].y;
         stars[i].y += move_velocity->y;
-        if (stars[i].y > 0.5 || stars[i].y < -0.5) stars[i].y = lolrand - 0.5;
+        if (stars[i].y > 0.5 || stars[i].y < -0.5)
+            stars[i].y = stars[i].last_y = lolrand - 0.5;
 
+        stars[i].last_z = stars[i].z;
         stars[i].z += move_velocity->z;
-        if (stars[i].z < 0.0) stars[i].z = 1.0;
-        else if (stars[i].z > 1.0) stars[i].z = 0.0;
+        if (stars[i].z < 0.0) stars[i].z = stars[i].last_z = 1.0;
+        else if (stars[i].z > 1.0) stars[i].z = stars[i].last_z = 0.0;
     }
 }
 
@@ -143,8 +161,13 @@ static void draw_star(cairo_t *cr, Star *star, int width, int height) {
         star_py (star) < 0.5
     ) {
         cairo_set_source_rgba (cr, STAR_RED, STAR_GREEN, STAR_BLUE, star_brightness(star));
-        cairo_move_to (cr, star_x (star, width), star_y (star, height));
-        cairo_close_path (cr);
+        if (move_mode == ZOOMING) {
+            cairo_move_to (cr, screen_x (star_plast_x (star), width), screen_y (star_plast_y (star), height));
+            cairo_line_to (cr, screen_x (star_px (star), width), screen_y (star_py (star), height));
+        } else {
+            cairo_move_to (cr, screen_x (star_px (star), width), screen_y (star_py (star), height));
+            cairo_close_path (cr);
+        }
         cairo_stroke (cr);
     }
 }
