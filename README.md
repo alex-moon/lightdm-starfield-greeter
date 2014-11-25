@@ -1,7 +1,7 @@
 lightdm-starfield-greeter
 =========================
 
-So I went and forked [lightdm-gtk-greeter][https://launchpad.net/lightdm-gtk-greeter/] and ripped out all
+So I went and forked [lightdm-gtk-greeter](https://launchpad.net/lightdm-gtk-greeter/) and ripped out all
 the boring bits (user select, avatar, password box) and replaced them with **stars**!
 
 This greeter is good for a single user (last user logged in by default). All you need to do is enter your password!
