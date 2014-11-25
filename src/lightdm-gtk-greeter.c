@@ -1474,6 +1474,7 @@ start_authentication (const gchar *username)
         set_language (NULL);
     }
 
+    // fade_to_white();
     lightdm_greeter_authenticate (greeter, username);
 }
 
@@ -1590,7 +1591,7 @@ login_cb (GtkWidget *widget)
 
     prompt_active = FALSE;
 
-    if (lightdm_greeter_get_is_authenticated (greeter))
+    if (lightdm_greeter_get_is_authenticated (greeter)) 
         start_session ();
     else if (lightdm_greeter_get_in_authentication (greeter))
     {

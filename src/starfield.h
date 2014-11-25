@@ -29,14 +29,6 @@ static int double_eq(double a, double b) {
     );
 }
 
-static int velocity_eq(Velocity *a, Velocity *b) {
-    return (
-        double_eq (a->x, b->x) &&
-        double_eq (a->y, b->y) &&
-        double_eq (a->z, b->z)
-    );
-}
-
 static void accelerate_toward(Velocity *target) {
     if (!double_eq(move_velocity->x, target->x)) {
         if (move_velocity->x < target->x) move_velocity->x += ACCELERATION;
@@ -83,6 +75,7 @@ static double star_brightness (Star *star);
 static void populate_stars(void);
 static void move_stars(void);
 static void draw_star(cairo_t *cr, Star *star, int width, int height);
+static void fade_to_white(void);
 static void draw_stars(cairo_t *cr, int width, int height);
 static void start_starfield(void);
 
@@ -169,18 +162,30 @@ static void draw_star(cairo_t *cr, Star *star, int width, int height) {
         star_py (star) < 0.5
     ) {
         cairo_set_source_rgba (cr, STAR_RED, STAR_GREEN, STAR_BLUE, star_brightness(star));
-        /*if (velocity_eq (move_velocity, &drift_velocity)) {
-            cairo_move_to (cr, screen_x (star_px (star), width), screen_y (star_py (star), height));
-            cairo_close_path (cr);
-        } else {*/
-            cairo_move_to (cr, screen_x (star_plast_x (star), width), screen_y (star_plast_y (star), height));
-            cairo_line_to (cr, screen_x (star_px (star), width), screen_y (star_py (star), height));
-        //}
+        // to draw without trails:
+        // cairo_move_to (cr, screen_x (star_px (star), width), screen_y (star_py (star), height));
+        // cairo_close_path (cr);
+        cairo_move_to (cr, screen_x (star_plast_x (star), width), screen_y (star_plast_y (star), height));
+        cairo_line_to (cr, screen_x (star_px (star), width), screen_y (star_py (star), height));
         cairo_stroke (cr);
     }
 }
 
+static int fading = FALSE;
+static double fade = 0.0;
+
+void fade_to_white(void) {
+    fading = TRUE;
+    sleep (1);
+}
+
 void draw_stars(cairo_t *cr, int width, int height) {
+    if (fading) {
+        cairo_set_source_rgba (cr, 1.0, 1.0, 1.0, fade);
+        cairo_rectangle (cr, 0.0, 0.0, (double) width, (double) height);
+        cairo_fill (cr);
+        fade += 0.025;
+    }
     cairo_set_line_cap (cr, CAIRO_LINE_CAP_ROUND);
     for (i=0; i < STARS_MAX; i++) {
         draw_star (cr, &stars[i], width, height);
