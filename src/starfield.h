@@ -75,7 +75,7 @@ static double star_brightness (Star *star);
 static void populate_stars(void);
 static void move_stars(void);
 static void draw_star(cairo_t *cr, Star *star, int width, int height);
-void fade_to_white(void (*callback)(void));
+static void fade_to_white(void (*callback)(void));
 static void draw_stars(cairo_t *cr, int width, int height);
 static void start_starfield(void);
 
@@ -177,6 +177,7 @@ static void (*fade_callback)(void);
 
 void fade_to_white(void (*callback)(void)) {
     fading = TRUE;
+    fade_callback = callback;
 }
 
 void draw_stars(cairo_t *cr, int width, int height) {
