@@ -75,7 +75,7 @@ static double star_brightness (Star *star);
 static void populate_stars(void);
 static void move_stars(void);
 static void draw_star(cairo_t *cr, Star *star, int width, int height);
-static void fade_to_white(void);
+void fade_to_white(void (*callback)(void));
 static void draw_stars(cairo_t *cr, int width, int height);
 static void start_starfield(void);
 
@@ -173,18 +173,22 @@ static void draw_star(cairo_t *cr, Star *star, int width, int height) {
 
 static int fading = FALSE;
 static double fade = 0.0;
+static void (*fade_callback)(void);
 
-void fade_to_white(void) {
+void fade_to_white(void (*callback)(void)) {
     fading = TRUE;
-    sleep (1);
 }
 
 void draw_stars(cairo_t *cr, int width, int height) {
     if (fading) {
-        cairo_set_source_rgba (cr, 1.0, 1.0, 1.0, fade);
-        cairo_rectangle (cr, 0.0, 0.0, (double) width, (double) height);
-        cairo_fill (cr);
-        fade += 0.025;
+        if (fade > 1.0) {
+            fade_callback ();
+        } else {
+            cairo_set_source_rgba (cr, STAR_RED, STAR_GREEN, STAR_BLUE, fade);
+            cairo_rectangle (cr, 0.0, 0.0, (double) width, (double) height);
+            cairo_fill (cr);
+            fade += 0.025;
+        }
     }
     cairo_set_line_cap (cr, CAIRO_LINE_CAP_ROUND);
     for (i=0; i < STARS_MAX; i++) {

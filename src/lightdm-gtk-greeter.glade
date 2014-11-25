@@ -203,7 +203,6 @@
       <group name="a11y_accelgroup"/>
       <group name="power_accelgroup"/>
     </accel-groups>
-    <signal name="key-press-event" handler="login_window_key_press_cb" swapped="no"/>
     <style>
       <class name="lightdm-gtk-greeter"/>
     </style>

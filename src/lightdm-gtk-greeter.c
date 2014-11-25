@@ -1474,7 +1474,6 @@ start_authentication (const gchar *username)
         set_language (NULL);
     }
 
-    // fade_to_white();
     lightdm_greeter_authenticate (greeter, username);
 }
 
@@ -1591,8 +1590,9 @@ login_cb (GtkWidget *widget)
 
     prompt_active = FALSE;
 
-    if (lightdm_greeter_get_is_authenticated (greeter)) 
-        start_session ();
+    if (lightdm_greeter_get_is_authenticated (greeter)) {
+        fade_to_white (start_session);
+    }
     else if (lightdm_greeter_get_in_authentication (greeter))
     {
         lightdm_greeter_respond (greeter, password_so_far);
@@ -1666,7 +1666,7 @@ authentication_complete_cb (LightDMGreeter *greeter)
 
     if (lightdm_greeter_get_is_authenticated (greeter))
     {
-        start_session ();
+        fade_to_white (start_session);
     }
     else
     {
