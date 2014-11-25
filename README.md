@@ -21,3 +21,8 @@ Once this is done you can rebuild by doing:
     sudo make clean install
 
 Easy, ne?
+
+Screenshot
+----------
+
+![screenshot](screenshot.png)
