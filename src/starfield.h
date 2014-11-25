@@ -6,8 +6,8 @@
 int move_mode = DRIFTING;
 
 #define DRIFT_VELOCITY {-0.0005, 0.0, 0.0}
-#define CRUISE_VELOCITY {0.0, 0.0, -0.005}
-#define ZOOM_VELOCITY {0.0, 0.0, -0.1}
+#define CRUISE_VELOCITY {0.0, 0.0, -0.001}
+#define ZOOM_VELOCITY {0.0, 0.0, -0.05}
 
 typedef struct {
     double x, y, z;
