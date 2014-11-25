@@ -19,13 +19,21 @@ Velocity zoom_velocity = ZOOM_VELOCITY;
 
 Velocity *move_velocity;
 
-#define ACCELERATION 0.001
-#define EPSILON 0.0000001
+#define ACCELERATION 0.0002
+#define EPSILON 0.0001
 
 static int double_eq(double a, double b) {
     return (
         (a <= b && a + EPSILON > b) ||
         (a >= b && a - EPSILON < b)
+    );
+}
+
+static int velocity_eq(Velocity *a, Velocity *b) {
+    return (
+        double_eq (a->x, b->x) &&
+        double_eq (a->y, b->y) &&
+        double_eq (a->z, b->z)
     );
 }
 
@@ -161,13 +169,13 @@ static void draw_star(cairo_t *cr, Star *star, int width, int height) {
         star_py (star) < 0.5
     ) {
         cairo_set_source_rgba (cr, STAR_RED, STAR_GREEN, STAR_BLUE, star_brightness(star));
-        // if (move_mode == ZOOMING) {
+        /*if (velocity_eq (move_velocity, &drift_velocity)) {
+            cairo_move_to (cr, screen_x (star_px (star), width), screen_y (star_py (star), height));
+            cairo_close_path (cr);
+        } else {*/
             cairo_move_to (cr, screen_x (star_plast_x (star), width), screen_y (star_plast_y (star), height));
             cairo_line_to (cr, screen_x (star_px (star), width), screen_y (star_py (star), height));
-        // } else {
-        //     cairo_move_to (cr, screen_x (star_px (star), width), screen_y (star_py (star), height));
-        //     cairo_close_path (cr);
-        // }
+        //}
         cairo_stroke (cr);
     }
 }

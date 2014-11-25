@@ -1441,91 +1441,6 @@ xkl_xevent_filter (GdkXEvent *xev, GdkEvent *event, gpointer  data)
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 static void
 start_authentication (const gchar *username)
 {
@@ -1651,10 +1566,12 @@ process_prompts (LightDMGreeter *greeter)
 
         prompted = TRUE;
         password_prompted = TRUE;
-        prompt_active = TRUE;
-        ZERO_PASSWORD;
-        drift_starfield();
-        gtk_widget_queue_draw (GTK_WIDGET (starfield));
+        if (! prompt_active) {
+            prompt_active = TRUE;
+            ZERO_PASSWORD;
+            drift_starfield();
+            gtk_widget_queue_draw (GTK_WIDGET (starfield));
+        }
 
         /* If we have more stuff after a prompt, assume that other prompts are pending,
          * so stop here. */
@@ -1765,87 +1682,6 @@ authentication_complete_cb (LightDMGreeter *greeter)
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 void
 session_selected_cb(GtkMenuItem *menuitem, gpointer user_data);
 G_MODULE_EXPORT
@@ -1900,80 +1736,6 @@ menubar_key_press_cb (GtkWidget *widget, GdkEventKey *event, gpointer user_data)
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// #include <byteswap.h>
-// #define lolrand ((double)rand()/(double)RAND_MAX)
-// #include "starfield.h"
-
 int starfield_width;
 int starfield_height;
 guint32 new_char;
@@ -1985,7 +1747,7 @@ static void *star_thread(void *arg) {
     while (1) {
         move_stars();
         gtk_widget_queue_draw (GTK_WIDGET (starfield));
-        usleep (50000);
+        usleep (40000);
     }
     return NULL;
 }
