@@ -78,7 +78,7 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
-sbin_PROGRAMS = lightdm-gtk-greeter$(EXEEXT)
+sbin_PROGRAMS = lightdm-starfield-greeter$(EXEEXT)
 subdir = src
 DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/Makefile.am \
 	$(top_srcdir)/depcomp
@@ -477,8 +477,8 @@ clean-sbinPROGRAMS:
 	echo " rm -f" $$list; \
 	rm -f $$list
 
-lightdm-gtk-greeter$(EXEEXT): $(lightdm_gtk_greeter_OBJECTS) $(lightdm_gtk_greeter_DEPENDENCIES) $(EXTRA_lightdm_gtk_greeter_DEPENDENCIES) 
-	@rm -f lightdm-gtk-greeter$(EXEEXT)
+lightdm-starfield-greeter$(EXEEXT): $(lightdm_gtk_greeter_OBJECTS) $(lightdm_gtk_greeter_DEPENDENCIES) $(EXTRA_lightdm_gtk_greeter_DEPENDENCIES) 
+	@rm -f lightdm-starfield-greeter$(EXEEXT)
 	$(AM_V_CCLD)$(lightdm_gtk_greeter_LINK) $(lightdm_gtk_greeter_OBJECTS) $(lightdm_gtk_greeter_LDADD) $(LIBS)
 
 mostlyclean-compile:

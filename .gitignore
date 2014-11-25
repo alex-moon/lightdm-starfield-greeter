@@ -10,6 +10,7 @@ config.*
 libtool
 src/.deps/
 src/lightdm-gtk-greeter
+src/lightdm-starfield-greeter
 stamp-h1
 
 # Object files

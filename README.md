@@ -20,7 +20,11 @@ Once this is done you can rebuild by doing:
 
     sudo make clean install
 
-Easy, ne?
+Then simply add your brand spanking new greeter to your ``/etc/lightdm/lightdm.conf``:
+
+    greeter-session=lightdm-starfield-greeter
+
+**You'll be the belle of the ball.**
 
 Screenshot
 ----------
