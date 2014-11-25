@@ -6,6 +6,9 @@ the boring bits (user select, avatar, password box) and replaced them with **sta
 
 This greeter is good for a single user (last user logged in by default). All you need to do is enter your password!
 
+Most of the functional stuff is in ``src/lightdm-gtk-greeter.c`` which still looks for the most part very much like
+the original - fun stuff is in ``src/starfield.h`` - change colours, movement, star density, etc. - hack away!
+
 Build
 -----
 
