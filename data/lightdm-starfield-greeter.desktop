@@ -1,0 +1,6 @@
+[Desktop Entry]
+Name=Alex Moon's Magical Starfield Greeter
+Comment=Replace your boring old login screen with STARS!
+Exec=lightdm-starfield-greeter
+Type=Application
+X-Ubuntu-Gettext-Domain=lightdm

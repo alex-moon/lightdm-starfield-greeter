@@ -1,4 +1,4 @@
-sbin_PROGRAMS = lightdm-gtk-greeter
+sbin_PROGRAMS = lightdm-starfield-greeter
 
 lightdm_gtk_greeter_built_sources = \
 	lightdm-gtk-greeter-ui.h \

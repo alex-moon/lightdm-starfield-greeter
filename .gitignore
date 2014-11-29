@@ -1,0 +1,44 @@
+*.sublime-project
+*.sublime-workspace
+
+*.bak
+*~
+
+po
+Makefile
+config.*
+libtool
+src/.deps/
+src/lightdm-gtk-greeter
+src/lightdm-starfield-greeter
+stamp-h1
+
+# Object files
+*.o
+*.ko
+*.obj
+*.elf
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Libraries
+*.lib
+*.a
+*.la
+*.lo
+
+# Shared objects (inc. Windows DLLs)
+*.dll
+*.so
+*.so.*
+*.dylib
+
+# Executables
+*.exe
+*.out
+*.app
+*.i*86
+*.x86_64
+*.hex
