@@ -185,11 +185,11 @@ void draw_stars(cairo_t *cr, int width, int height) {
         if (fade > 1.0) {
             fade_callback ();
         } else {
-            cairo_set_source_rgba (cr, STAR_RED, STAR_GREEN, STAR_BLUE, fade);
-            cairo_rectangle (cr, 0.0, 0.0, (double) width, (double) height);
-            cairo_fill (cr);
             fade += 0.025;
         }
+        cairo_set_source_rgba (cr, STAR_RED, STAR_GREEN, STAR_BLUE, fade);
+        cairo_rectangle (cr, 0.0, 0.0, (double) width, (double) height);
+        cairo_fill (cr);
     }
     cairo_set_line_cap (cr, CAIRO_LINE_CAP_ROUND);
     for (i=0; i < STARS_MAX; i++) {
